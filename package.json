@@ -3,7 +3,8 @@
   "version": "3.0.0",
   "type": "module",
   "scripts": {
-    "setup": "./scripts/setup-localai.sh",
+    "localai": "docker compose -f localai/docker-compose.yaml up",
+    "localai:build": "docker compose -f localai/docker-compose.yaml build",
     "dev": "vite",
     "dev:server": "tsx watch server/index.ts",
     "dev:all": "concurrently \"npm run dev:server\" \"npm run dev\"",

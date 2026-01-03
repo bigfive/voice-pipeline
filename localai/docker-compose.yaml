@@ -1,0 +1,17 @@
+services:
+  localai:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      # Persist models so they don't re-download
+      - localai-models:/build/models
+    environment:
+      - THREADS=4
+      - CONTEXT_SIZE=8192
+      # Enable GPU on Mac
+      - LOCALAI_FORCE_METAL=true
+
+volumes:
+  localai-models:
+

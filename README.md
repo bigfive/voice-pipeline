@@ -5,7 +5,7 @@ Push-to-talk voice assistant powered by LocalAI (STT + LLM + TTS).
 ## Architecture
 
 ```
-Browser                    Server              LocalAI
+Browser                    Server              LocalAI (Docker)
 ┌─────────────┐           ┌────────┐          ┌─────────────┐
 │  Capture    │──audio──▶│        │──POST──▶│  Whisper    │
 │  Audio      │           │        │          │  (STT)      │
@@ -13,7 +13,7 @@ Browser                    Server              LocalAI
 │  Play       │◀─audio───│  WS    │◀─────────│  Piper      │
 │  Audio      │           │  Proxy │          │  (TTS)      │
 │             │           │        │          │             │
-│  Show       │◀─text────│        │◀─stream──│  LLaMA/etc  │
+│  Show       │◀─text────│        │◀─stream──│  Gemma      │
 │  Text       │           │        │          │  (LLM)      │
 └─────────────┘           └────────┘          └─────────────┘
 ```
@@ -21,7 +21,7 @@ Browser                    Server              LocalAI
 ## Requirements
 
 - Node.js 18+
-- LocalAI running locally
+- Docker
 
 ## Quick Start
 
@@ -29,19 +29,34 @@ Browser                    Server              LocalAI
 # 1. Install deps
 npm install
 
-# 2. Setup LocalAI (installs LocalAI + downloads models)
-npm run setup
+# 2. Start LocalAI (first run will download models ~2GB)
+npm run localai
 
-# 3. Run the voice assistant
+# 3. In another terminal, start the app
 npm run dev:all
 
 # 4. Open http://localhost:5173
 ```
 
-The setup script will:
-- Install LocalAI via Homebrew (if not installed)
-- Start LocalAI in the background
-- Download required models (Whisper, FunctionGemma, Piper TTS)
+## Scripts
+
+| Command | Description |
+|---------|-------------|
+| `npm run localai` | Start LocalAI in Docker |
+| `npm run localai:build` | Rebuild LocalAI image |
+| `npm run dev` | Start frontend (port 5173) |
+| `npm run dev:server` | Start server (port 8000) |
+| `npm run dev:all` | Start server + frontend |
+
+## Pre-installed Models
+
+The Docker image includes:
+
+| Model | Purpose | Size |
+|-------|---------|------|
+| `whisper-base` | Speech-to-Text | ~150MB |
+| `gemma-2-2b` | LLM (Q4 quantized) | ~1.5GB |
+| `piper en_US-amy` | Text-to-Speech | ~100MB |
 
 ## Configuration
 
@@ -51,23 +66,14 @@ Edit `server/index.ts`:
 const CONFIG = {
   localai: {
     baseUrl: "http://localhost:8080",
-    sttModel: "whisper-1",      // STT model name
-    llmModel: "functiongemma",  // LLM model name
-    ttsModel: "tts-1",          // TTS model name
-    ttsVoice: "alloy",          // TTS voice
+    sttModel: "whisper-base",
+    llmModel: "functiongemma",
+    ttsModel: "tts-1",
+    ttsVoice: "en_US-amy-medium",
     systemPrompt: "...",
   },
 };
 ```
-
-## Scripts
-
-| Command | Description |
-|---------|-------------|
-| `npm run setup` | Install LocalAI + download models |
-| `npm run dev` | Start frontend (port 5173) |
-| `npm run dev:server` | Start server (port 8000) |
-| `npm run dev:all` | Start both |
 
 ## Project Structure
 
@@ -77,14 +83,24 @@ const CONFIG = {
 │   └── voice-client.ts
 ├── server/
 │   └── index.ts           # WebSocket proxy to LocalAI
+├── localai/
+│   ├── Dockerfile         # Pre-configured LocalAI
+│   ├── docker-compose.yaml
+│   └── models/            # Model configs
+│       ├── whisper-base.yaml
+│       ├── llm.yaml
+│       └── tts.yaml
 ├── index.html
 └── package.json
 ```
 
-## Why LocalAI?
+## Customizing Models
 
-- **One server** handles STT + LLM + TTS
-- **OpenAI-compatible API** - standard interface
-- **No native Node modules** - just HTTP calls
-- **Easy model management** - web UI or CLI
-- **Cross-platform** - brew install or Docker
+To change models, edit the YAML files in `localai/models/` and rebuild:
+
+```bash
+npm run localai:build
+npm run localai
+```
+
+See [LocalAI Model Gallery](https://localai.io/models/) for available models.

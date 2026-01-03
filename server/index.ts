@@ -11,10 +11,10 @@ const PORT = 8000;
 const CONFIG = {
   localai: {
     baseUrl: process.env.LOCALAI_URL || "http://localhost:8080",
-    sttModel: "whisper-1",
+    sttModel: "whisper-base",
     llmModel: "functiongemma",
     ttsModel: "tts-1",
-    ttsVoice: "alloy",
+    ttsVoice: "en_US-amy-medium",
     systemPrompt:
       "You are a helpful voice assistant. Keep your responses very brief and concise—ideally 1 sentence. " +
       "Speak naturally as if having a conversation. Avoid lists, markdown, or lengthy explanations unless explicitly asked. " +

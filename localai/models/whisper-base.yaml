@@ -1,0 +1,7 @@
+# Whisper Base - Speech to Text
+name: whisper-base
+backend: whisper
+parameters:
+  model: whisper-base
+  language: en
+

@@ -1,0 +1,8 @@
+# FunctionGemma - LLM
+name: functiongemma
+backend: llama-cpp
+parameters:
+  model: huggingface://google/gemma-2-2b-it-GGUF/gemma-2-2b-it-Q4_K_M.gguf
+context_size: 8192
+gpu_layers: 99
+
