@@ -1,20 +1,20 @@
 /**
  * Voice Assistant Server
- * WebSocket server for STT (Whisper) -> LLM (Ollama) -> TTS (Piper)
+ * WebSocket server using LocalAI for STT + LLM + TTS
  */
 
 import { WebSocketServer, WebSocket } from "ws";
 import { createServer } from "http";
-import { SpeechToText } from "./stt.ts";
-import { TextToSpeech } from "./tts.ts";
-import { OllamaClient } from "./llm.ts";
 
 const PORT = 8000;
 
 const CONFIG = {
-  ollama: {
-    baseUrl: "http://localhost:11434",
-    model: "gemma3n:e2b",
+  localai: {
+    baseUrl: process.env.LOCALAI_URL || "http://localhost:8080",
+    sttModel: "whisper-1",
+    llmModel: "gpt-4",
+    ttsModel: "tts-1",
+    ttsVoice: "alloy",
     systemPrompt:
       "You are a helpful voice assistant. Keep your responses very brief and concise—ideally 1 sentence. " +
       "Speak naturally as if having a conversation. Avoid lists, markdown, or lengthy explanations unless explicitly asked. " +
@@ -22,13 +22,104 @@ const CONFIG = {
   },
 };
 
-// Initialize services
-console.log("Initializing voice assistant server...");
+// Conversation history per connection
+interface Message {
+  role: "system" | "user" | "assistant";
+  content: string;
+}
 
-const stt = new SpeechToText();
-const tts = new TextToSpeech();
+// ============ LocalAI API Calls ============
 
-// Create HTTP server for WebSocket
+async function transcribe(audioBuffer: Buffer): Promise<string> {
+  const formData = new FormData();
+  const blob = new Blob([audioBuffer], { type: "audio/wav" });
+  formData.append("file", blob, "audio.wav");
+  formData.append("model", CONFIG.localai.sttModel);
+
+  const response = await fetch(
+    `${CONFIG.localai.baseUrl}/v1/audio/transcriptions`,
+    {
+      method: "POST",
+      body: formData,
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`STT failed: ${response.status} ${await response.text()}`);
+  }
+
+  const data = await response.json();
+  return data.text?.trim() || "";
+}
+
+async function* chatStream(
+  messages: Message[]
+): AsyncGenerator<string, void, unknown> {
+  const response = await fetch(`${CONFIG.localai.baseUrl}/v1/chat/completions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: CONFIG.localai.llmModel,
+      messages,
+      stream: true,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`LLM failed: ${response.status} ${await response.text()}`);
+  }
+
+  const reader = response.body?.getReader();
+  if (!reader) throw new Error("No response body");
+
+  const decoder = new TextDecoder();
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    const chunk = decoder.decode(value);
+    const lines = chunk.split("\n").filter((line) => line.startsWith("data: "));
+
+    for (const line of lines) {
+      const data = line.slice(6); // Remove "data: " prefix
+      if (data === "[DONE]") continue;
+
+      try {
+        const json = JSON.parse(data);
+        const content = json.choices?.[0]?.delta?.content;
+        if (content) {
+          yield content;
+        }
+      } catch {
+        // Skip malformed JSON
+      }
+    }
+  }
+}
+
+async function synthesize(text: string): Promise<Buffer> {
+  const response = await fetch(`${CONFIG.localai.baseUrl}/v1/audio/speech`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: CONFIG.localai.ttsModel,
+      input: text,
+      voice: CONFIG.localai.ttsVoice,
+      response_format: "pcm", // Raw PCM audio
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`TTS failed: ${response.status} ${await response.text()}`);
+  }
+
+  const arrayBuffer = await response.arrayBuffer();
+  return Buffer.from(arrayBuffer);
+}
+
+// ============ WebSocket Server ============
+
 const server = createServer((req, res) => {
   if (req.url === "/health") {
     res.writeHead(200, { "Content-Type": "application/json" });
@@ -39,15 +130,17 @@ const server = createServer((req, res) => {
   }
 });
 
-// Create WebSocket server
 const wss = new WebSocketServer({ server });
+
+console.log("Initializing voice assistant server...");
 
 wss.on("connection", (ws: WebSocket) => {
   console.log("Client connected");
 
-  const llm = new OllamaClient(CONFIG.ollama);
+  let history: Message[] = [
+    { role: "system", content: CONFIG.localai.systemPrompt },
+  ];
   let audioBuffer: Buffer[] = [];
-  let sampleRate = 16000;
 
   ws.on("message", async (data: Buffer | string) => {
     try {
@@ -55,10 +148,8 @@ wss.on("connection", (ws: WebSocket) => {
 
       switch (message.type) {
         case "audio": {
-          // Accumulate audio chunks
           const chunk = Buffer.from(message.data, "base64");
           audioBuffer.push(chunk);
-          sampleRate = message.sample_rate || 16000;
           break;
         }
 
@@ -68,13 +159,12 @@ wss.on("connection", (ws: WebSocket) => {
             break;
           }
 
-          // Combine audio buffers
           const fullAudio = Buffer.concat(audioBuffer);
           audioBuffer = [];
 
-          // 1. Transcribe
+          // 1. Transcribe (STT)
           console.log("Transcribing...");
-          const transcript = stt.transcribe(fullAudio, sampleRate);
+          const transcript = await transcribe(fullAudio);
           console.log(`Transcript: "${transcript}"`);
 
           sendJson(ws, { type: "transcript", text: transcript });
@@ -84,32 +174,40 @@ wss.on("connection", (ws: WebSocket) => {
             break;
           }
 
-          // 2. Stream LLM response and TTS
+          // Add user message to history
+          history.push({ role: "user", content: transcript });
+
+          // 2. Stream LLM response
           console.log("Generating response...");
+          let fullResponse = "";
           let sentenceBuffer = "";
           const sentenceEnders = /[.!?]/;
 
-          for await (const chunk of llm.chatStream(transcript)) {
+          for await (const chunk of chatStream(history)) {
+            fullResponse += chunk;
             sentenceBuffer += chunk;
 
-            // Send text chunk to client
             sendJson(ws, { type: "response_text", text: chunk, done: false });
 
-            // Check for sentence boundaries
+            // Check for sentence boundaries for TTS
             const match = sentenceBuffer.match(sentenceEnders);
             if (match && match.index !== undefined) {
               const sentence = sentenceBuffer.slice(0, match.index + 1).trim();
               sentenceBuffer = sentenceBuffer.slice(match.index + 1);
 
               if (sentence) {
-                // Synthesize and send audio
+                // 3. Synthesize and send audio (TTS)
                 console.log(`Speaking: "${sentence}"`);
-                const audio = tts.synthesize(sentence);
-                sendJson(ws, {
-                  type: "audio",
-                  data: audio.samples.toString("base64"),
-                  sample_rate: audio.sampleRate,
-                });
+                try {
+                  const audio = await synthesize(sentence);
+                  sendJson(ws, {
+                    type: "audio",
+                    data: audio.toString("base64"),
+                    sample_rate: 24000, // LocalAI default
+                  });
+                } catch (err) {
+                  console.error("TTS error:", err);
+                }
               }
             }
           }
@@ -117,13 +215,20 @@ wss.on("connection", (ws: WebSocket) => {
           // Speak remaining text
           if (sentenceBuffer.trim()) {
             console.log(`Speaking final: "${sentenceBuffer.trim()}"`);
-            const audio = tts.synthesize(sentenceBuffer.trim());
-            sendJson(ws, {
-              type: "audio",
-              data: audio.samples.toString("base64"),
-              sample_rate: audio.sampleRate,
-            });
+            try {
+              const audio = await synthesize(sentenceBuffer.trim());
+              sendJson(ws, {
+                type: "audio",
+                data: audio.toString("base64"),
+                sample_rate: 24000,
+              });
+            } catch (err) {
+              console.error("TTS error:", err);
+            }
           }
+
+          // Add assistant message to history
+          history.push({ role: "assistant", content: fullResponse });
 
           sendJson(ws, { type: "response_text", text: "", done: true });
           sendJson(ws, { type: "done" });
@@ -131,7 +236,7 @@ wss.on("connection", (ws: WebSocket) => {
         }
 
         case "clear_history": {
-          llm.clearHistory();
+          history = [{ role: "system", content: CONFIG.localai.systemPrompt }];
           sendJson(ws, { type: "history_cleared" });
           break;
         }
@@ -157,9 +262,8 @@ function sendJson(ws: WebSocket, data: object): void {
   }
 }
 
-// Start server
 server.listen(PORT, () => {
   console.log(`Voice assistant server running on ws://localhost:${PORT}`);
+  console.log(`Using LocalAI at ${CONFIG.localai.baseUrl}`);
   console.log(`Health check: http://localhost:${PORT}/health`);
 });
-

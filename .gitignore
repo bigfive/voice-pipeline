@@ -4,9 +4,6 @@ node_modules/
 # Build output
 dist/
 
-# Models (downloaded via npm run download-models)
-server/models/
-
 # Vite
 .vite/
 
@@ -18,4 +15,3 @@ server/models/
 
 # Logs
 *.log
-
