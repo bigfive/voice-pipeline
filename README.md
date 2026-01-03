@@ -1,18 +1,18 @@
 # Voice Assistant
 
-Push-to-talk voice assistant with server-side STT/LLM/TTS.
+Push-to-talk voice assistant with server-side STT/LLM/TTS — all in TypeScript.
 
 ## Architecture
 
 ```
-Browser                    Server (Python)
+Browser                    Server (Node.js)
 ┌─────────────┐           ┌─────────────────────┐
-│  Capture    │──audio──▶│  faster-whisper     │
-│  Audio      │           │  (STT)              │
+│  Capture    │──audio──▶│  sherpa-onnx        │
+│  Audio      │           │  Whisper (STT)      │
 │             │           │         │           │
-│  Play       │◀─audio───│  Piper TTS          │
-│  Audio      │           │         ▲           │
-│             │           │         │           │
+│  Play       │◀─audio───│  sherpa-onnx        │
+│  Audio      │           │  Piper (TTS)        │
+│             │           │         ▲           │
 │  Show       │◀─text────│  Ollama (LLM)       │
 │  Text       │           │                     │
 └─────────────┘           └─────────────────────┘
@@ -22,84 +22,77 @@ Browser                    Server (Python)
 
 ## Requirements
 
-- Python 3.10+
-- Ollama running locally with a model (default: `gemma3n:e2b`)
 - Node.js 18+
+- Ollama running locally with a model (default: `gemma3n:e2b`)
 
-## Setup
-
-### 1. Install Python dependencies
+## Quick Start
 
 ```bash
+# 1. Install everything + download models (~500MB)
+npm run setup
+
+# 2. Start Ollama (in another terminal)
+ollama serve
+ollama pull gemma3n:e2b
+
+# 3. Start the server
+npm run server:dev
+
+# 4. Start the frontend (in another terminal)
+npm run dev
+
+# 5. Open http://localhost:5173
+```
+
+## Manual Setup
+
+### Install dependencies
+
+```bash
+# Frontend
+npm install
+
+# Server
 cd server
-python -m venv venv
-source venv/bin/activate  # or `venv\Scripts\activate` on Windows
-pip install -r requirements.txt
-```
-
-### 2. Download Piper voice model
-
-The first time you run the server, Piper will automatically download the voice model. You can also manually download:
-
-```bash
-# Install piper-tts CLI
-pip install piper-tts
-
-# List available voices
-piper --help
-```
-
-### 3. Install frontend dependencies
-
-```bash
 npm install
 ```
 
-### 4. Start Ollama
-
-```bash
-ollama serve
-# In another terminal:
-ollama pull gemma3n:e2b  # or your preferred model
-```
-
-## Running
-
-### Start the server
+### Download models
 
 ```bash
 cd server
-source venv/bin/activate
-python main.py
-# Server runs on http://localhost:8000
+npm run download-models
 ```
 
-### Start the frontend
+This downloads:
+- **Whisper small.en** (~250MB) - Speech-to-text
+- **Piper lessac-medium** (~65MB) - Text-to-speech
+
+### Run
 
 ```bash
+# Terminal 1: Server
+cd server
 npm run dev
-# Frontend runs on http://localhost:5173
+# Runs on ws://localhost:8000
+
+# Terminal 2: Frontend
+npm run dev
+# Runs on http://localhost:5173
 ```
 
 ## Configuration
 
-### Server (`server/main.py`)
+### Server (`server/src/index.ts`)
 
-```python
-CONFIG = {
-    "ollama": {
-        "base_url": "http://localhost:11434",
-        "model": "gemma3n:e2b",
-        "system_prompt": "...",
-    },
-    "stt": {
-        "model_size": "base.en",  # tiny.en, base.en, small.en, medium.en, large-v3
-        "device": "auto",         # cpu, cuda, auto
-    },
-    "tts": {
-        "model": "en_US-lessac-medium",  # Piper voice
-    },
-}
+```typescript
+const CONFIG = {
+  ollama: {
+    baseUrl: "http://localhost:11434",
+    model: "gemma3n:e2b",
+    systemPrompt: "...",
+  },
+};
 ```
 
 ### Client (`src/voice-client.ts`)
@@ -121,7 +114,25 @@ export const CONFIG = {
 ## Tech Stack
 
 - **Frontend**: Vite + TypeScript
-- **Server**: FastAPI + WebSockets
-- **STT**: faster-whisper (CTranslate2)
-- **TTS**: Piper
+- **Server**: Node.js + WebSockets
+- **STT**: sherpa-onnx (Whisper small.en)
+- **TTS**: sherpa-onnx (Piper)
 - **LLM**: Ollama
+
+## Project Structure
+
+```
+├── src/                    # Frontend
+│   ├── main.ts            # UI entry point
+│   └── voice-client.ts    # WebSocket client
+├── server/                 # Backend
+│   ├── src/
+│   │   ├── index.ts       # Server entry point
+│   │   ├── stt.ts         # Whisper STT
+│   │   ├── tts.ts         # Piper TTS
+│   │   └── llm.ts         # Ollama client
+│   ├── models/            # Downloaded models (gitignored)
+│   └── scripts/
+│       └── download-models.ts
+└── index.html
+```

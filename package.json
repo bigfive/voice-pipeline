@@ -6,7 +6,10 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "server": "cd server && python main.py"
+    "server:install": "cd server && npm install",
+    "server:download-models": "cd server && npm run download-models",
+    "server:dev": "cd server && npm run dev",
+    "setup": "npm install && npm run server:install && npm run server:download-models"
   },
   "devDependencies": {
     "typescript": "^5.3.0",
