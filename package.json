@@ -7,7 +7,7 @@
     "dev:server": "tsx watch server/index.ts",
     "dev:all": "concurrently \"npm run dev:server\" \"npm run dev\"",
     "build": "tsc && vite build",
-    "download-models": "tsx server/scripts/download-models.ts",
+    "download-models": "tsx scripts/download-models.ts",
     "setup": "npm install && npm run download-models"
   },
   "dependencies": {

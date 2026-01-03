@@ -6,7 +6,7 @@ import { execSync } from "child_process";
 import { existsSync, mkdirSync } from "fs";
 import { join } from "path";
 
-const MODELS_DIR = join(import.meta.dirname, "..", "models");
+const MODELS_DIR = join(import.meta.dirname, "..", "server", "models");
 
 const MODELS = {
   whisper: {
