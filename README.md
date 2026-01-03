@@ -25,42 +25,23 @@ Browser                    Server              LocalAI
 
 ## Quick Start
 
-### 1. Install LocalAI
-
 ```bash
-brew install localai
-```
-
-### 2. Start LocalAI and download models
-
-```bash
-# Start LocalAI
-local-ai
-
-# In the web UI (http://localhost:8080), install:
-# - A Whisper model for STT
-# - An LLM (e.g., llama3, phi3)
-# - A TTS voice
-```
-
-Or via CLI:
-```bash
-local-ai models install whisper-base
-local-ai models install functiongemma
-local-ai models install voice-en-us-amy-low
-```
-
-### 3. Run the voice assistant
-
-```bash
-# Install deps
+# 1. Install deps
 npm install
 
-# Run both server + frontend
+# 2. Setup LocalAI (installs LocalAI + downloads models)
+npm run setup
+
+# 3. Run the voice assistant
 npm run dev:all
 
-# Open http://localhost:5173
+# 4. Open http://localhost:5173
 ```
+
+The setup script will:
+- Install LocalAI via Homebrew (if not installed)
+- Start LocalAI in the background
+- Download required models (Whisper, FunctionGemma, Piper TTS)
 
 ## Configuration
 
@@ -71,7 +52,7 @@ const CONFIG = {
   localai: {
     baseUrl: "http://localhost:8080",
     sttModel: "whisper-1",      // STT model name
-    llmModel: "functiongemma",  // LLM model name  
+    llmModel: "functiongemma",  // LLM model name
     ttsModel: "tts-1",          // TTS model name
     ttsVoice: "alloy",          // TTS voice
     systemPrompt: "...",
@@ -83,6 +64,7 @@ const CONFIG = {
 
 | Command | Description |
 |---------|-------------|
+| `npm run setup` | Install LocalAI + download models |
 | `npm run dev` | Start frontend (port 5173) |
 | `npm run dev:server` | Start server (port 8000) |
 | `npm run dev:all` | Start both |
