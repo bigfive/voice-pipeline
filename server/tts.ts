@@ -10,7 +10,7 @@ import { dirname } from "path";
 import * as sherpa from "sherpa-onnx-node";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const MODELS_DIR = join(__dirname, "..", "models");
+const MODELS_DIR = join(__dirname, "models");
 
 export interface AudioResult {
   samples: Buffer;

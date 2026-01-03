@@ -1,18 +1,18 @@
 # Voice Assistant
 
-Push-to-talk voice assistant with server-side STT/LLM/TTS — all in TypeScript.
+Push-to-talk voice assistant with server-side STT/LLM/TTS — all TypeScript.
 
 ## Architecture
 
 ```
 Browser                    Server (Node.js)
 ┌─────────────┐           ┌─────────────────────┐
-│  Capture    │──audio──▶│  sherpa-onnx        │
-│  Audio      │           │  Whisper (STT)      │
+│  Capture    │──audio──▶│  Whisper (STT)      │
+│  Audio      │           │         │           │
+│             │           │         ▼           │
+│  Play       │◀─audio───│  Piper (TTS)        │
+│  Audio      │           │         ▲           │
 │             │           │         │           │
-│  Play       │◀─audio───│  sherpa-onnx        │
-│  Audio      │           │  Piper (TTS)        │
-│             │           │         ▲           │
 │  Show       │◀─text────│  Ollama (LLM)       │
 │  Text       │           │                     │
 └─────────────┘           └─────────────────────┘
@@ -23,67 +23,37 @@ Browser                    Server (Node.js)
 ## Requirements
 
 - Node.js 18+
-- Ollama running locally with a model (default: `gemma3n:e2b`)
+- Ollama running locally
 
 ## Quick Start
 
 ```bash
-# 1. Install everything + download models (~500MB)
+# 1. Install deps + download models (~300MB)
 npm run setup
 
-# 2. Start Ollama (in another terminal)
+# 2. Start Ollama
 ollama serve
 ollama pull gemma3n:e2b
 
-# 3. Start the server
-npm run server:dev
+# 3. Run both server and frontend
+npm run dev:all
 
-# 4. Start the frontend (in another terminal)
-npm run dev
-
-# 5. Open http://localhost:5173
+# 4. Open http://localhost:5173
 ```
 
-## Manual Setup
+## Scripts
 
-### Install dependencies
-
-```bash
-# Frontend
-npm install
-
-# Server
-cd server
-npm install
-```
-
-### Download models
-
-```bash
-cd server
-npm run download-models
-```
-
-This downloads:
-- **Whisper small.en** (~250MB) - Speech-to-text
-- **Piper lessac-medium** (~65MB) - Text-to-speech
-
-### Run
-
-```bash
-# Terminal 1: Server
-cd server
-npm run dev
-# Runs on ws://localhost:8000
-
-# Terminal 2: Frontend
-npm run dev
-# Runs on http://localhost:5173
-```
+| Command | Description |
+|---------|-------------|
+| `npm run setup` | Install deps + download models |
+| `npm run dev` | Start frontend only (port 5173) |
+| `npm run dev:server` | Start server only (port 8000) |
+| `npm run dev:all` | Start both concurrently |
+| `npm run download-models` | Re-download STT/TTS models |
 
 ## Configuration
 
-### Server (`server/src/index.ts`)
+Edit `server/index.ts`:
 
 ```typescript
 const CONFIG = {
@@ -95,44 +65,28 @@ const CONFIG = {
 };
 ```
 
-### Client (`src/voice-client.ts`)
-
-```typescript
-export const CONFIG = {
-  serverUrl: "ws://localhost:8000/ws",
-  sampleRate: 16000,
-};
-```
-
-## Usage
-
-1. Open http://localhost:5173
-2. Press and hold the button (or spacebar) to speak
-3. Release to send audio to server
-4. Listen to the response
-
-## Tech Stack
-
-- **Frontend**: Vite + TypeScript
-- **Server**: Node.js + WebSockets
-- **STT**: sherpa-onnx (Whisper small.en)
-- **TTS**: sherpa-onnx (Piper)
-- **LLM**: Ollama
-
 ## Project Structure
 
 ```
 ├── src/                    # Frontend
-│   ├── main.ts            # UI entry point
-│   └── voice-client.ts    # WebSocket client
+│   ├── main.ts
+│   └── voice-client.ts
 ├── server/                 # Backend
-│   ├── src/
-│   │   ├── index.ts       # Server entry point
-│   │   ├── stt.ts         # Whisper STT
-│   │   ├── tts.ts         # Piper TTS
-│   │   └── llm.ts         # Ollama client
+│   ├── index.ts           # WebSocket server
+│   ├── stt.ts             # Whisper STT
+│   ├── tts.ts             # Piper TTS
+│   ├── llm.ts             # Ollama client
 │   ├── models/            # Downloaded models (gitignored)
 │   └── scripts/
 │       └── download-models.ts
-└── index.html
+├── index.html
+└── package.json
 ```
+
+## Tech Stack
+
+- **Frontend**: Vite + TypeScript
+- **Server**: Node.js + WebSockets + tsx
+- **STT**: sherpa-onnx (Whisper small.en)
+- **TTS**: sherpa-onnx (Piper)
+- **LLM**: Ollama

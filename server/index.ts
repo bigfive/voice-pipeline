@@ -5,9 +5,9 @@
 
 import { WebSocketServer, WebSocket } from "ws";
 import { createServer } from "http";
-import { SpeechToText } from "./stt.js";
-import { TextToSpeech } from "./tts.js";
-import { OllamaClient } from "./llm.js";
+import { SpeechToText } from "./stt.ts";
+import { TextToSpeech } from "./tts.ts";
+import { OllamaClient } from "./llm.ts";
 
 const PORT = 8000;
 
