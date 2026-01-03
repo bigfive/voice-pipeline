@@ -4,273 +4,301 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Voice Assistant</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
   <style>
-    * { box-sizing: border-box; }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg-primary: #0a0a0f;
+      --bg-secondary: #12121a;
+      --bg-tertiary: #1a1a25;
+      --accent-cyan: #00ffd5;
+      --accent-magenta: #ff006e;
+      --accent-amber: #ffbe0b;
+      --text-primary: #f0f0f5;
+      --text-secondary: #8888a0;
+      --text-muted: #55556a;
+      --border: rgba(255, 255, 255, 0.08);
+    }
 
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      font-family: 'Outfit', -apple-system, sans-serif;
+      background: var(--bg-primary);
       min-height: 100vh;
-      margin: 0;
+      color: var(--text-primary);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .container {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      max-width: 640px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    header {
+      padding: 1.5rem 1.5rem 1rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    header h1 {
+      font-size: 1.25rem;
+      font-weight: 500;
+      letter-spacing: -0.02em;
+    }
+
+    .subtitle {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+      margin-top: 0.25rem;
+    }
+
+    .status-bar {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1.5rem;
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border);
+      font-size: 0.8rem;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--text-muted);
+      transition: all 0.3s;
+    }
+
+    .status-dot.connecting {
+      background: var(--accent-amber);
+      animation: pulse-amber 1.5s infinite;
+    }
+
+    .status-dot.idle {
+      background: var(--accent-cyan);
+      box-shadow: 0 0 8px var(--accent-cyan);
+    }
+
+    .status-dot.listening {
+      background: var(--accent-magenta);
+      animation: pulse-magenta 0.8s infinite;
+    }
+
+    .status-dot.processing {
+      background: var(--accent-amber);
+      animation: spin 1s linear infinite;
+    }
+
+    .status-dot.speaking {
+      background: var(--accent-cyan);
+      animation: pulse-cyan 0.5s infinite;
+    }
+
+    @keyframes pulse-amber {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    @keyframes pulse-magenta {
+      0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 0, 110, 0.4); }
+      50% { transform: scale(1.2); box-shadow: 0 0 12px rgba(255, 0, 110, 0.6); }
+    }
+
+    @keyframes pulse-cyan {
+      0%, 100% { box-shadow: 0 0 8px var(--accent-cyan); }
+      50% { box-shadow: 0 0 16px var(--accent-cyan), 0 0 24px var(--accent-cyan); }
+    }
+
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    .conversation {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1rem 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .message {
+      animation: slideUp 0.2s ease-out;
+    }
+
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .message.system {
+      text-align: center;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      padding: 2rem;
+    }
+
+    .message.user {
+      align-self: flex-end;
+      max-width: 85%;
+    }
+
+    .message.user p {
+      background: var(--accent-magenta);
+      color: white;
+      padding: 0.75rem 1rem;
+      border-radius: 16px 16px 4px 16px;
+      font-size: 0.9rem;
+      line-height: 1.5;
+    }
+
+    .message.assistant {
+      align-self: flex-start;
+      max-width: 85%;
+    }
+
+    .message.assistant p {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      padding: 0.75rem 1rem;
+      border-radius: 16px 16px 16px 4px;
+      font-size: 0.9rem;
+      line-height: 1.5;
+    }
+
+    .controls {
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+      border-top: 1px solid var(--border);
+      background: var(--bg-secondary);
+    }
+
+    .ptt-button {
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      border: 2px solid var(--border);
+      background: var(--bg-tertiary);
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.2s;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      color: #fff;
-    }
-
-    .container {
-      text-align: center;
-      padding: 2rem;
-      max-width: 500px;
-      width: 100%;
-    }
-
-    h1 {
-      font-size: 1.5rem;
-      margin-bottom: 0.5rem;
-      opacity: 0.9;
-    }
-
-    .subtitle {
-      font-size: 0.875rem;
-      opacity: 0.6;
-      margin-bottom: 2rem;
-    }
-
-    .status {
-      background: rgba(255,255,255,0.1);
-      border-radius: 8px;
-      padding: 1rem;
-      margin-bottom: 2rem;
-      min-height: 60px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .status-text {
-      font-size: 0.875rem;
-      opacity: 0.8;
-    }
-
-    .talk-button {
-      width: 140px;
-      height: 140px;
-      border-radius: 50%;
-      border: none;
-      background: linear-gradient(145deg, #e94560, #c73e54);
-      color: white;
-      font-size: 1rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s;
-      box-shadow: 0 8px 32px rgba(233, 69, 96, 0.3);
-      position: relative;
-      overflow: hidden;
+      gap: 0.5rem;
       user-select: none;
       -webkit-user-select: none;
       touch-action: manipulation;
     }
 
-    .talk-button:hover:not(:disabled) {
-      transform: scale(1.05);
-      box-shadow: 0 12px 40px rgba(233, 69, 96, 0.4);
+    .ptt-button:hover:not(:disabled) {
+      border-color: var(--accent-cyan);
+      color: var(--text-primary);
     }
 
-    .talk-button:active:not(:disabled) {
-      transform: scale(0.95);
-    }
-
-    .talk-button:disabled {
-      background: #444;
+    .ptt-button:disabled {
+      opacity: 0.4;
       cursor: not-allowed;
-      box-shadow: none;
     }
 
-    .talk-button.recording {
-      background: linear-gradient(145deg, #00d9ff, #00b4d8);
-      animation: pulse 1.5s infinite;
+    .ptt-button.active {
+      background: var(--accent-magenta);
+      border-color: var(--accent-magenta);
+      color: white;
+      transform: scale(0.95);
+      box-shadow: 0 0 40px rgba(255, 0, 110, 0.4);
     }
 
-    .talk-button.processing {
-      background: linear-gradient(145deg, #ffd700, #ffaa00);
-      animation: none;
+    .mic-icon {
+      width: 32px;
+      height: 32px;
     }
 
-    .talk-button.speaking {
-      background: linear-gradient(145deg, #00ff88, #00cc6a);
-      animation: pulse-green 1.5s infinite;
-    }
-
-    @keyframes pulse {
-      0%, 100% { box-shadow: 0 0 0 0 rgba(0, 217, 255, 0.4); }
-      50% { box-shadow: 0 0 0 20px rgba(0, 217, 255, 0); }
-    }
-
-    @keyframes pulse-green {
-      0%, 100% { box-shadow: 0 0 0 0 rgba(0, 255, 136, 0.4); }
-      50% { box-shadow: 0 0 0 20px rgba(0, 255, 136, 0); }
-    }
-
-    .transcript {
-      margin-top: 2rem;
-      text-align: left;
-      background: rgba(255,255,255,0.05);
-      border-radius: 8px;
-      padding: 1rem;
-      max-height: 300px;
-      overflow-y: auto;
-      min-height: 100px;
-    }
-
-    .transcript:empty::before {
-      content: 'Conversation will appear here...';
-      opacity: 0.4;
-      font-style: italic;
-    }
-
-    .message {
-      margin-bottom: 1rem;
-      padding: 0.75rem;
-      border-radius: 8px;
-      animation: fadeIn 0.3s ease-out;
-    }
-
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(10px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    .message:last-child {
-      margin-bottom: 0;
-    }
-
-    .message.user {
-      background: rgba(233, 69, 96, 0.2);
-      border-left: 3px solid #e94560;
-    }
-
-    .message.assistant {
-      background: rgba(0, 217, 255, 0.2);
-      border-left: 3px solid #00d9ff;
-    }
-
-    .message-label {
-      font-size: 0.75rem;
-      opacity: 0.6;
-      margin-bottom: 0.25rem;
-      text-transform: uppercase;
+    .button-text {
+      font-size: 0.7rem;
+      font-family: 'JetBrains Mono', monospace;
       letter-spacing: 0.05em;
+      text-transform: uppercase;
     }
 
-    .message-content {
-      line-height: 1.5;
-      white-space: pre-wrap;
-      word-wrap: break-word;
-    }
-
-    .loading-dots::after {
-      content: '';
-      animation: dots 1.5s steps(4, end) infinite;
-    }
-
-    @keyframes dots {
-      0%, 20% { content: ''; }
-      40% { content: '.'; }
-      60% { content: '..'; }
-      80%, 100% { content: '...'; }
-    }
-
-    .init-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.95);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      z-index: 100;
-    }
-
-    .init-overlay.hidden {
-      display: none;
-    }
-
-    .init-overlay h2 {
-      margin-bottom: 0.5rem;
-    }
-
-    .progress-bar {
-      width: 250px;
-      height: 4px;
-      background: rgba(255,255,255,0.2);
-      border-radius: 2px;
-      overflow: hidden;
-      margin-top: 1rem;
-    }
-
-    .progress-fill {
-      height: 100%;
-      background: linear-gradient(90deg, #e94560, #00d9ff);
-      width: 0%;
-      transition: width 0.3s;
-    }
-
-    .hint {
-      margin-top: 1rem;
+    .clear-button {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
       font-size: 0.75rem;
-      opacity: 0.4;
+      font-family: 'JetBrains Mono', monospace;
+      cursor: pointer;
+      transition: all 0.2s;
     }
 
-    /* Scrollbar styling */
-    .transcript::-webkit-scrollbar {
-      width: 6px;
+    .clear-button:hover {
+      border-color: var(--text-muted);
+      color: var(--text-secondary);
     }
 
-    .transcript::-webkit-scrollbar-track {
-      background: rgba(255,255,255,0.05);
-      border-radius: 3px;
+    footer {
+      padding: 0.75rem 1.5rem;
+      text-align: center;
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+      border-top: 1px solid var(--border);
     }
 
-    .transcript::-webkit-scrollbar-thumb {
-      background: rgba(255,255,255,0.2);
-      border-radius: 3px;
+    footer code {
+      color: var(--accent-cyan);
     }
 
-    .transcript::-webkit-scrollbar-thumb:hover {
-      background: rgba(255,255,255,0.3);
+    /* Scrollbar */
+    .conversation::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    .conversation::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .conversation::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 2px;
+    }
+
+    /* Mobile adjustments */
+    @media (max-width: 480px) {
+      .ptt-button {
+        width: 100px;
+        height: 100px;
+      }
+
+      .mic-icon {
+        width: 28px;
+        height: 28px;
+      }
     }
   </style>
 </head>
 <body>
-  <!-- Loading overlay -->
-  <div class="init-overlay" id="initOverlay">
-    <h2>🎙️ Loading Voice Assistant</h2>
-    <p class="subtitle" id="loadingStatus">Initializing...</p>
-    <div class="progress-bar">
-      <div class="progress-fill" id="progressFill"></div>
-    </div>
-    <p class="hint">First load downloads ~150MB of models</p>
-  </div>
-
-  <div class="container">
-    <h1>🎙️ Voice Assistant</h1>
-    <p class="subtitle">Moonshine STT • Ollama LLM • Kokoro TTS</p>
-
-    <div class="status">
-      <span class="status-text" id="status">Loading...</span>
-    </div>
-
-    <button class="talk-button" id="talkBtn" disabled>
-      Hold to Talk
-    </button>
-
-    <p class="hint">Or press and hold Spacebar</p>
-
-    <div class="transcript" id="transcript"></div>
-  </div>
-
+  <div id="app"></div>
   <script type="module" src="/src/main.ts"></script>
 </body>
 </html>

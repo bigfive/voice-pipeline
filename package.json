@@ -1,16 +1,12 @@
 {
-  "name": "ptt-voice-assistant",
-  "version": "1.0.0",
+  "name": "voice-assistant",
+  "version": "2.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
-  },
-  "dependencies": {
-    "@huggingface/transformers": "^3.0.0",
-    "onnxruntime-web": "^1.22.0",
-    "phonemizer": "^1.2.1"
+    "preview": "vite preview",
+    "server": "cd server && python main.py"
   },
   "devDependencies": {
     "typescript": "^5.3.0",
