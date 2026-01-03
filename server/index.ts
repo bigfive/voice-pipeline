@@ -12,7 +12,7 @@ const CONFIG = {
   localai: {
     baseUrl: process.env.LOCALAI_URL || "http://localhost:8080",
     sttModel: "whisper-1",
-    llmModel: "gpt-4",
+    llmModel: "functiongemma",
     ttsModel: "tts-1",
     ttsVoice: "alloy",
     systemPrompt:

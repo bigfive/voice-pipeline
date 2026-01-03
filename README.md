@@ -46,7 +46,7 @@ local-ai
 Or via CLI:
 ```bash
 local-ai models install whisper-base
-local-ai models install llama3.2
+local-ai models install functiongemma
 local-ai models install voice-en-us-amy-low
 ```
 
@@ -71,7 +71,7 @@ const CONFIG = {
   localai: {
     baseUrl: "http://localhost:8080",
     sttModel: "whisper-1",      // STT model name
-    llmModel: "gpt-4",          // LLM model name  
+    llmModel: "functiongemma",  // LLM model name  
     ttsModel: "tts-1",          // TTS model name
     ttsVoice: "alloy",          // TTS voice
     systemPrompt: "...",
