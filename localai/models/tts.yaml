@@ -1,6 +1,0 @@
-# Piper TTS - Text to Speech
-name: tts-1
-backend: piper
-parameters:
-  model: en_US-amy-medium
-

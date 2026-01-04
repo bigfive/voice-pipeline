@@ -1,62 +1,60 @@
 # Voice Assistant
 
-Push-to-talk voice assistant powered by LocalAI (STT + LLM + TTS).
+Push-to-talk voice assistant - 100% local, powered by Transformers.js.
 
 ## Architecture
 
 ```
-Browser                    Server              LocalAI (Docker)
-┌─────────────┐           ┌────────┐          ┌─────────────┐
-│  Capture    │──audio──▶│        │──POST──▶│  Whisper    │
-│  Audio      │           │        │          │  (STT)      │
-│             │           │  Node  │          │             │
-│  Play       │◀─audio───│  WS    │◀─────────│  Piper      │
-│  Audio      │           │  Proxy │          │  (TTS)      │
-│             │           │        │          │             │
-│  Show       │◀─text────│        │◀─stream──│  Gemma      │
-│  Text       │           │        │          │  (LLM)      │
-└─────────────┘           └────────┘          └─────────────┘
+Browser                    Server (Node.js + Transformers.js)
+┌─────────────┐           ┌──────────────────────────────────┐
+│  Capture    │──audio───▶│  Whisper (STT)                   │
+│  Audio      │           │          ↓                       │
+│             │           │  SmolLM2 360M (LLM)              │
+│  Play       │◀──audio───│          ↓                       │
+│  Audio      │           │  SpeechT5 (TTS)                  │
+│             │           │                                  │
+│  Show       │◀──text────│                                  │
+│  Text       │           │                                  │
+└─────────────┘           └──────────────────────────────────┘
 ```
 
 ## Requirements
 
 - Node.js 18+
-- Docker
+
+That's it. No Docker, no external services.
 
 ## Quick Start
 
 ```bash
-# 1. Install deps
+# 1. Install dependencies
 npm install
 
-# 2. Start LocalAI (first run will download models ~2GB)
-npm run localai
-
-# 3. In another terminal, start the app
+# 2. Start the app (first run downloads ~1GB of models)
 npm run dev:all
 
-# 4. Open http://localhost:5173
+# 3. Open http://localhost:5173
 ```
+
+First run downloads models from Hugging Face (~1GB total). They're cached in `~/.cache/huggingface`.
 
 ## Scripts
 
 | Command | Description |
 |---------|-------------|
-| `npm run localai` | Start LocalAI in Docker |
-| `npm run localai:build` | Rebuild LocalAI image |
 | `npm run dev` | Start frontend (port 5173) |
 | `npm run dev:server` | Start server (port 8000) |
 | `npm run dev:all` | Start server + frontend |
 
-## Pre-installed Models
+## Models
 
-The Docker image includes:
+All models run locally via Transformers.js:
 
-| Model | Purpose | Size |
-|-------|---------|------|
-| `whisper-base` | Speech-to-Text | ~150MB |
-| `gemma-2-2b` | LLM (Q4 quantized) | ~1.5GB |
-| `piper en_US-amy` | Text-to-Speech | ~100MB |
+| Component | Model | Size |
+|-----------|-------|------|
+| STT | [Xenova/whisper-small](https://huggingface.co/Xenova/whisper-small) | ~250MB |
+| LLM | [SmolLM2-360M-Instruct](https://huggingface.co/HuggingFaceTB/SmolLM2-360M-Instruct) | ~360MB |
+| TTS | [Xenova/speecht5_tts](https://huggingface.co/Xenova/speecht5_tts) | ~250MB |
 
 ## Configuration
 
@@ -64,13 +62,16 @@ Edit `server/index.ts`:
 
 ```typescript
 const CONFIG = {
-  localai: {
-    baseUrl: "http://localhost:8080",
-    sttModel: "whisper-base",
-    llmModel: "functiongemma",
-    ttsModel: "tts-1",
-    ttsVoice: "en_US-amy-medium",
+  stt: {
+    model: "Xenova/whisper-small",  // or whisper-tiny, whisper-base
+  },
+  llm: {
+    model: "HuggingFaceTB/SmolLM2-360M-Instruct",
     systemPrompt: "...",
+    maxNewTokens: 100,
+  },
+  tts: {
+    model: "Xenova/speecht5_tts",
   },
 };
 ```
@@ -82,25 +83,17 @@ const CONFIG = {
 │   ├── main.ts
 │   └── voice-client.ts
 ├── server/
-│   └── index.ts           # WebSocket proxy to LocalAI
-├── localai/
-│   ├── Dockerfile         # Pre-configured LocalAI
-│   ├── docker-compose.yaml
-│   └── models/            # Model configs
-│       ├── whisper-base.yaml
-│       ├── llm.yaml
-│       └── tts.yaml
+│   └── index.ts           # WebSocket server with STT/LLM/TTS
 ├── index.html
 └── package.json
 ```
 
-## Customizing Models
+## How It Works
 
-To change models, edit the YAML files in `localai/models/` and rebuild:
+1. **Browser** captures audio via MediaRecorder and sends it over WebSocket
+2. **Server** transcribes audio using Whisper
+3. **Server** generates response with Granite (streamed)
+4. **Server** synthesizes each sentence with SpeechT5
+5. **Browser** plays back the audio chunks as they arrive
 
-```bash
-npm run localai:build
-npm run localai
-```
-
-See [LocalAI Model Gallery](https://localai.io/models/) for available models.
+All AI processing runs locally in Node.js - no cloud APIs, no Docker, no external dependencies.

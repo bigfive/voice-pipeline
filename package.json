@@ -1,20 +1,21 @@
 {
   "name": "voice-assistant",
-  "version": "3.0.0",
+  "version": "4.0.0",
   "type": "module",
   "scripts": {
-    "localai": "docker compose -f localai/docker-compose.yaml up",
-    "localai:build": "docker compose -f localai/docker-compose.yaml build",
     "dev": "vite",
     "dev:server": "tsx watch server/index.ts",
     "dev:all": "concurrently \"npm run dev:server\" \"npm run dev\"",
     "build": "tsc && vite build"
   },
   "dependencies": {
+    "@huggingface/transformers": "^3.8.1",
+    "number-to-words": "^1.2.4",
     "ws": "^8.18.0"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
+    "@types/number-to-words": "^1.2.3",
     "@types/ws": "^8.5.10",
     "concurrently": "^8.2.0",
     "tsx": "^4.7.0",

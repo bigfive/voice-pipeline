@@ -157,12 +157,8 @@ export class VoiceClient {
       this.audioContext = new AudioContext();
     }
 
-    // Convert raw PCM (16-bit signed int) to Float32
-    const int16Array = new Int16Array(rawPcm);
-    const float32Array = new Float32Array(int16Array.length);
-    for (let i = 0; i < int16Array.length; i++) {
-      float32Array[i] = int16Array[i] / 32768;
-    }
+    // Server sends Float32 audio directly from TTS model
+    const float32Array = new Float32Array(rawPcm);
 
     // Create audio buffer at server's sample rate
     const audioBuffer = this.audioContext.createBuffer(
