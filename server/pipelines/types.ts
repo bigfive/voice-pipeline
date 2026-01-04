@@ -40,6 +40,12 @@ export interface TTSPipeline {
   /** Synthesize text to audio */
   synthesize(text: string): Promise<AudioResult>;
 
+  /** Pre-cache audio for common phrases */
+  precache(phrases: string[]): Promise<void>;
+
+  /** Get cached audio if available, null otherwise */
+  getCached(text: string): AudioResult | null;
+
   /** Check if pipeline is ready */
   isReady(): boolean;
 }

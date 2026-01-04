@@ -30,7 +30,10 @@ async function main(): Promise<void> {
     ttsPipeline.initialize(),
   ]);
 
-  // 3. Create services
+  // 3. Pre-cache common TTS phrases for instant playback
+  await ttsPipeline.precache(config.precachedPhrases);
+
+  // 4. Create services
   const textNormalizer = new TextNormalizer();
   const conversationService = new ConversationService(config.llm.systemPrompt);
   const voiceService = new VoiceService(
@@ -41,10 +44,10 @@ async function main(): Promise<void> {
     conversationService
   );
 
-  // 4. Create handler
+  // 5. Create handler
   const voiceHandler = new VoiceHandler(voiceService, conversationService);
 
-  // 5. Create infrastructure
+  // 6. Create infrastructure
   const httpServer = new HttpServer({ port: config.port });
   const wsServer = new WebSocketServerWrapper(
     httpServer.getServer(),
@@ -54,7 +57,7 @@ async function main(): Promise<void> {
   // Wire handler to WebSocket server
   voiceHandler.setWebSocketServer(wsServer);
 
-  // 6. Start listening
+  // 7. Start listening
   await httpServer.listen();
 
   console.log(`Voice assistant server running on ws://localhost:${config.port}`);

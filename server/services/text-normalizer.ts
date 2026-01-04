@@ -28,6 +28,9 @@ export class TextNormalizer {
   normalize(text: string): string {
     let result = text;
 
+    // Handle times FIRST (before punctuation converts colons)
+    result = this.normalizeTimes(result);
+
     // Handle decimal numbers (e.g., "3.14" -> "three point one four")
     result = this.normalizeDecimalNumbers(result);
 
@@ -59,6 +62,37 @@ export class TextNormalizer {
     result = result.replace(/\s+/g, ' ').trim();
 
     return result;
+  }
+
+  private normalizeTimes(text: string): string {
+    // Match times like "3:06 PM", "12:30", "10:00 AM"
+    return text.replace(
+      /\b(\d{1,2}):(\d{2})\s*(AM|PM|am|pm|a\.m\.|p\.m\.)?\b/g,
+      (_, hourStr, minuteStr, period) => {
+        const hour = parseInt(hourStr, 10);
+        const minute = parseInt(minuteStr, 10);
+
+        const hourWord = toWords(hour);
+
+        let minuteWord: string;
+        if (minute === 0) {
+          // 3:00 -> "three o'clock" or just "three" if period follows
+          minuteWord = period ? '' : "o'clock";
+        } else if (minute < 10) {
+          // 3:06 -> "three oh six"
+          minuteWord = 'oh ' + toWords(minute);
+        } else {
+          // 3:30 -> "three thirty"
+          minuteWord = toWords(minute);
+        }
+
+        const periodWord = period
+          ? ' ' + period.replace(/\./g, '').toUpperCase().split('').join(' ')
+          : '';
+
+        return (hourWord + ' ' + minuteWord + periodWord).trim();
+      }
+    );
   }
 
   private normalizeDecimalNumbers(text: string): string {

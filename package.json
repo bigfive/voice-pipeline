@@ -6,7 +6,9 @@
     "dev": "vite",
     "dev:server": "tsx watch server/index.ts",
     "dev:all": "concurrently \"npm run dev:server\" \"npm run dev\"",
-    "build": "tsc && vite build"
+    "build": "tsc && vite build",
+    "cleanup": "./scripts/cleanup.sh",
+    "cleanup:cache": "./scripts/cleanup.sh --cache"
   },
   "dependencies": {
     "@huggingface/transformers": "^3.8.1",
