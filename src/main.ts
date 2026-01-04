@@ -1,213 +1,221 @@
 /**
  * Voice Assistant - Main Entry Point
- * Push-to-talk interface with server-side STT/LLM/TTS
+ * Orchestrates all services and UI
  */
 
-import { VoiceClient, CONFIG } from "./voice-client";
+import { config } from './config';
+import { AudioRecorder, AudioPlayer, WebSocketClient, base64ToArrayBuffer } from './services';
+import { AppStateManager, STATE_LABELS } from './state';
+import { createLayout, getUIElements, createMessageElement, updateMessageText, scrollToBottom } from './ui';
+import type { ServerMessage } from '../shared/protocol';
 
-// DOM Elements
-const app = document.getElementById("app")!;
+// Initialize layout
+const app = document.getElementById('app')!;
+app.innerHTML = createLayout({ serverUrl: config.serverUrl });
 
-// Create UI
-app.innerHTML = `
-  <div class="container">
-    <header>
-      <h1>Voice Assistant</h1>
-      <p class="subtitle">Push-to-talk • Server-side STT/TTS</p>
-    </header>
+// Get UI elements
+const ui = getUIElements();
 
-    <div class="status-bar">
-      <span class="status-dot" id="statusDot"></span>
-      <span id="statusText">Connecting...</span>
-    </div>
+// Initialize state manager
+const stateManager = new AppStateManager();
 
-    <div class="conversation" id="conversation">
-      <div class="message system">
-        <p>Press and hold the button to speak</p>
-      </div>
-    </div>
+// Initialize services
+const audioRecorder = new AudioRecorder({ sampleRate: config.audio.sampleRate });
+const audioPlayer = new AudioPlayer();
+const wsClient = new WebSocketClient(
+  { url: config.serverUrl, reconnectDelay: config.reconnectDelay },
+  {
+    onConnected: () => {
+      console.log('Connected to server');
+      stateManager.setState('idle');
+    },
+    onDisconnected: () => {
+      console.log('Disconnected from server');
+      stateManager.setState('connecting');
+      // Reconnect after delay
+      setTimeout(() => connectToServer(), config.reconnectDelay);
+    },
+    onMessage: handleServerMessage,
+    onError: (error) => {
+      console.error('WebSocket error:', error);
+    },
+  }
+);
 
-    <div class="controls">
-      <button id="pttButton" class="ptt-button" disabled>
-        <svg class="mic-icon" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
-          <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
-        </svg>
-        <span class="button-text">Hold to Speak</span>
-      </button>
+// State for streaming assistant response
+let currentAssistantMsg: HTMLElement | null = null;
+let currentAssistantText = '';
 
-      <button id="clearButton" class="clear-button">Clear History</button>
-    </div>
+// ============ UI State Updates ============
 
-    <footer>
-      <p>Server: <code>${CONFIG.serverUrl}</code></p>
-    </footer>
-  </div>
-`;
+stateManager.subscribe((state) => {
+  // Update status indicator
+  ui.statusDot.className = `status-dot ${state}`;
+  ui.statusText.textContent = STATE_LABELS[state];
 
-// State
-type State = "connecting" | "idle" | "listening" | "processing" | "speaking";
-let currentState: State = "connecting";
+  // Update button state
+  ui.pttButton.disabled = stateManager.isButtonDisabled();
 
-// UI Elements
-const statusDot = document.getElementById("statusDot")!;
-const statusText = document.getElementById("statusText")!;
-const conversation = document.getElementById("conversation")!;
-const pttButton = document.getElementById("pttButton") as HTMLButtonElement;
-const clearButton = document.getElementById("clearButton") as HTMLButtonElement;
-
-// Update UI state
-function setState(state: State) {
-  currentState = state;
-  statusDot.className = `status-dot ${state}`;
-
-  const stateLabels: Record<State, string> = {
-    connecting: "Connecting...",
-    idle: "Ready",
-    listening: "Listening...",
-    processing: "Processing...",
-    speaking: "Speaking...",
-  };
-
-  statusText.textContent = stateLabels[state];
-  pttButton.disabled = state === "connecting" || state === "processing" || state === "speaking";
-
-  if (state === "listening") {
-    pttButton.classList.add("active");
+  // Update button appearance
+  if (state === 'listening') {
+    ui.pttButton.classList.add('active');
   } else {
-    pttButton.classList.remove("active");
+    ui.pttButton.classList.remove('active');
+  }
+});
+
+// ============ Server Message Handling ============
+
+function handleServerMessage(message: ServerMessage): void {
+  switch (message.type) {
+    case 'transcript':
+      handleTranscript(message.text);
+      break;
+
+    case 'response_text':
+      if (message.text) {
+        handleResponseChunk(message.text);
+      }
+      if (message.done) {
+        handleResponseComplete();
+      }
+      break;
+
+    case 'audio':
+      handleAudio(message.data, message.sampleRate);
+      break;
+
+    case 'done':
+      handleDone();
+      break;
+
+    case 'error':
+      handleError(message.message);
+      break;
+
+    case 'history_cleared':
+      console.log('Conversation history cleared');
+      break;
   }
 }
 
-// Add message to conversation
-function addMessage(role: "user" | "assistant", text: string): HTMLElement {
-  const msg = document.createElement("div");
-  msg.className = `message ${role}`;
-  msg.innerHTML = `<p>${text}</p>`;
-  conversation.appendChild(msg);
-  conversation.scrollTop = conversation.scrollHeight;
+function handleTranscript(text: string): void {
+  console.log('Transcript:', text);
+  if (text) {
+    addMessage('user', text);
+    startAssistantMessage();
+  }
+}
+
+function handleResponseChunk(chunk: string): void {
+  currentAssistantText += chunk;
+  if (currentAssistantMsg) {
+    updateMessageText(currentAssistantMsg, currentAssistantText);
+    scrollToBottom(ui.conversation);
+  }
+}
+
+function handleResponseComplete(): void {
+  currentAssistantMsg = null;
+}
+
+function handleAudio(data: string, sampleRate: number): void {
+  stateManager.setState('speaking');
+  const audioData = base64ToArrayBuffer(data);
+  const float32 = new Float32Array(audioData);
+  audioPlayer.enqueue(float32, sampleRate);
+}
+
+function handleDone(): void {
+  // Wait for audio to finish before going idle
+  audioPlayer.waitForComplete().then(() => {
+    stateManager.setState('idle');
+  });
+}
+
+function handleError(message: string): void {
+  console.error('Server error:', message);
+  stateManager.setState('idle');
+}
+
+// ============ Message Rendering ============
+
+function addMessage(role: 'user' | 'assistant', text: string): HTMLElement {
+  const msg = createMessageElement(role, text);
+  ui.conversation.appendChild(msg);
+  scrollToBottom(ui.conversation);
   return msg;
 }
 
-// Update last assistant message (for streaming)
-let currentAssistantMsg: HTMLElement | null = null;
-let currentAssistantText = "";
-
-function startAssistantMessage() {
-  currentAssistantText = "";
-  currentAssistantMsg = addMessage("assistant", "...");
+function startAssistantMessage(): void {
+  currentAssistantText = '';
+  currentAssistantMsg = addMessage('assistant', '...');
 }
 
-function appendToAssistantMessage(chunk: string) {
-  currentAssistantText += chunk;
-  if (currentAssistantMsg) {
-    currentAssistantMsg.innerHTML = `<p>${currentAssistantText}</p>`;
-    conversation.scrollTop = conversation.scrollHeight;
+// ============ Connection ============
+
+async function connectToServer(): Promise<void> {
+  try {
+    await wsClient.connect();
+  } catch (err) {
+    console.error('Failed to connect:', err);
+    ui.statusText.textContent = 'Connection failed - retrying...';
+    setTimeout(() => connectToServer(), config.reconnectDelay);
   }
 }
 
-// Initialize client
-const client = new VoiceClient({
-  onConnected: () => {
-    console.log("Connected to server");
-    setState("idle");
-  },
-  onDisconnected: () => {
-    console.log("Disconnected from server");
-    setState("connecting");
-    // Try to reconnect
-    setTimeout(() => client.connect(), 2000);
-  },
-  onListening: () => {
-    setState("listening");
-  },
-  onProcessing: () => {
-    setState("processing");
-  },
-  onTranscript: (text) => {
-    if (text) {
-      addMessage("user", text);
-      startAssistantMessage();
-    }
-  },
-  onResponseChunk: (chunk) => {
-    appendToAssistantMessage(chunk);
-  },
-  onResponse: (_text) => {
-    currentAssistantMsg = null;
-  },
-  onSpeaking: () => {
-    setState("speaking");
-  },
-  onIdle: () => {
-    setState("idle");
-  },
-  onError: (error) => {
-    console.error("Error:", error);
-    setState("idle");
-  },
+// ============ Recording ============
+
+async function startRecording(): Promise<void> {
+  if (!stateManager.isIdle()) return;
+
+  stateManager.setState('listening');
+
+  await audioRecorder.start((chunk) => {
+    wsClient.sendAudio(chunk.buffer as ArrayBuffer, config.audio.sampleRate);
+  });
+}
+
+async function stopRecording(): Promise<void> {
+  if (!audioRecorder.isRecording()) return;
+
+  await audioRecorder.stop();
+  stateManager.setState('processing');
+  wsClient.sendEndAudio();
+}
+
+// ============ Event Handlers ============
+
+// Push-to-talk: mouse
+ui.pttButton.addEventListener('mousedown', async () => {
+  await startRecording();
 });
 
-// Connect to server
-client.connect().catch((err) => {
-  console.error("Failed to connect:", err);
-  statusText.textContent = "Connection failed - retrying...";
-  setTimeout(() => client.connect(), 2000);
+ui.pttButton.addEventListener('mouseup', async () => {
+  await stopRecording();
 });
 
-// Push-to-talk handlers
-pttButton.addEventListener("mousedown", async () => {
-  if (currentState !== "idle") return;
-  try {
-    await client.startListening();
-  } catch (err) {
-    console.error("Failed to start listening:", err);
+ui.pttButton.addEventListener('mouseleave', async () => {
+  if (audioRecorder.isRecording()) {
+    await stopRecording();
   }
 });
 
-pttButton.addEventListener("mouseup", async () => {
-  if (!client.isRecording()) return;
-  try {
-    await client.stopAndRespond();
-  } catch (err) {
-    console.error("Failed to process:", err);
-  }
-});
-
-pttButton.addEventListener("mouseleave", async () => {
-  if (!client.isRecording()) return;
-  try {
-    await client.stopAndRespond();
-  } catch (err) {
-    console.error("Failed to process:", err);
-  }
-});
-
-// Touch support for mobile
-pttButton.addEventListener("touchstart", async (e) => {
+// Push-to-talk: touch (mobile)
+ui.pttButton.addEventListener('touchstart', async (e) => {
   e.preventDefault();
-  if (currentState !== "idle") return;
-  try {
-    await client.startListening();
-  } catch (err) {
-    console.error("Failed to start listening:", err);
-  }
+  await startRecording();
 });
 
-pttButton.addEventListener("touchend", async (e) => {
+ui.pttButton.addEventListener('touchend', async (e) => {
   e.preventDefault();
-  if (!client.isRecording()) return;
-  try {
-    await client.stopAndRespond();
-  } catch (err) {
-    console.error("Failed to process:", err);
-  }
+  await stopRecording();
 });
 
 // Clear history
-clearButton.addEventListener("click", () => {
-  client.clearHistory();
-  conversation.innerHTML = `
+ui.clearButton.addEventListener('click', () => {
+  wsClient.sendClearHistory();
+  ui.conversation.innerHTML = `
     <div class="message system">
       <p>Conversation cleared. Press and hold to speak.</p>
     </div>
@@ -215,24 +223,20 @@ clearButton.addEventListener("click", () => {
 });
 
 // Keyboard shortcut: Space to talk
-document.addEventListener("keydown", async (e) => {
-  if (e.code === "Space" && !e.repeat && currentState === "idle") {
+document.addEventListener('keydown', async (e) => {
+  if (e.code === 'Space' && !e.repeat && stateManager.isIdle()) {
     e.preventDefault();
-    try {
-      await client.startListening();
-    } catch (err) {
-      console.error("Failed to start listening:", err);
-    }
+    await startRecording();
   }
 });
 
-document.addEventListener("keyup", async (e) => {
-  if (e.code === "Space" && client.isRecording()) {
+document.addEventListener('keyup', async (e) => {
+  if (e.code === 'Space' && audioRecorder.isRecording()) {
     e.preventDefault();
-    try {
-      await client.stopAndRespond();
-    } catch (err) {
-      console.error("Failed to process:", err);
-    }
+    await stopRecording();
   }
 });
+
+// ============ Initialize ============
+
+connectToServer();
