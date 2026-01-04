@@ -112,7 +112,7 @@ export const config: ServerConfig = {
 │   └── handlers/                 # WebSocket message handlers
 │       └── voice-handler.ts      # Audio/conversation handling
 │
-├── src/                          # Client (Browser)
+├── client/                       # Client (Browser)
 │   ├── main.ts                   # Entry point & orchestration
 │   ├── config.ts                 # Client configuration
 │   │
