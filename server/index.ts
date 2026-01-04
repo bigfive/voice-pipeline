@@ -7,7 +7,7 @@ import { config } from './config';
 import { HttpServer } from './infrastructure/http-server';
 import { WebSocketServerWrapper } from './infrastructure/websocket-server';
 import { WhisperSTTPipeline } from './pipelines/stt-pipeline';
-import { SmolLMPipeline } from './pipelines/llm-pipeline';
+import { GemmaLLMPipeline } from './pipelines/llm-pipeline';
 import { SpeechT5Pipeline } from './pipelines/tts-pipeline';
 import { ConversationService } from './services/conversation-service';
 import { VoiceService } from './services/voice-service';
@@ -20,7 +20,7 @@ async function main(): Promise<void> {
 
   // 1. Create pipelines
   const sttPipeline = new WhisperSTTPipeline(config.stt);
-  const llmPipeline = new SmolLMPipeline(config.llm);
+  const llmPipeline = new GemmaLLMPipeline(config.llm);
   const ttsPipeline = new SpeechT5Pipeline(config.tts);
 
   // 2. Initialize pipelines (load models)

@@ -9,7 +9,7 @@ Browser                    Server (Node.js + Transformers.js)
 ┌─────────────┐           ┌──────────────────────────────────┐
 │  Capture    │──audio───▶│  Whisper (STT)                   │
 │  Audio      │           │          ↓                       │
-│             │           │  SmolLM2 360M (LLM)              │
+│             │           │  FunctionGemma 270M (LLM)        │
 │  Play       │◀──audio───│          ↓                       │
 │  Audio      │           │  SpeechT5 (TTS)                  │
 │             │           │                                  │
@@ -53,7 +53,7 @@ All models run locally via Transformers.js:
 | Component | Model | Size |
 |-----------|-------|------|
 | STT | [Xenova/whisper-small](https://huggingface.co/Xenova/whisper-small) | ~250MB |
-| LLM | [SmolLM2-360M-Instruct](https://huggingface.co/HuggingFaceTB/SmolLM2-360M-Instruct) | ~360MB |
+| LLM | [google/functiongemma-270m-it](https://huggingface.co/google/functiongemma-270m-it) | ~270MB |
 | TTS | [Xenova/speecht5_tts](https://huggingface.co/Xenova/speecht5_tts) | ~250MB |
 
 ## Configuration
@@ -63,19 +63,19 @@ Edit `server/config.ts` or use environment variables:
 ```typescript
 export const config: ServerConfig = {
   port: Number(process.env.PORT) || 8000,
-  
+
   stt: {
     model: process.env.STT_MODEL || 'Xenova/whisper-small',
     // ...
   },
-  
+
   llm: {
-    model: process.env.LLM_MODEL || 'HuggingFaceTB/SmolLM2-360M-Instruct',
+    model: process.env.LLM_MODEL || 'google/functiongemma-270m-it',
     systemPrompt: process.env.SYSTEM_PROMPT || '...',
     maxNewTokens: Number(process.env.MAX_TOKENS) || 200,
     // ...
   },
-  
+
   tts: {
     model: process.env.TTS_MODEL || 'Xenova/speecht5_tts',
     // ...
@@ -101,7 +101,7 @@ export const config: ServerConfig = {
 │   ├── pipelines/                # AI Pipeline abstractions
 │   │   ├── types.ts              # Pipeline interfaces
 │   │   ├── stt-pipeline.ts       # Speech-to-Text (Whisper)
-│   │   ├── llm-pipeline.ts       # Language Model (SmolLM2)
+│   │   ├── llm-pipeline.ts       # Language Model (Gemma)
 │   │   └── tts-pipeline.ts       # Text-to-Speech (SpeechT5)
 │   │
 │   ├── services/                 # Domain services
@@ -157,7 +157,7 @@ export const config: ServerConfig = {
 2. **Server** accumulates audio, then `VoiceHandler` triggers processing
 3. `VoiceService` orchestrates the pipeline:
    - `STTPipeline` transcribes audio using Whisper
-   - `LLMPipeline` generates response with SmolLM2
+   - `LLMPipeline` generates response with FunctionGemma
    - `TTSPipeline` synthesizes each sentence with SpeechT5
 4. **Browser** receives audio chunks via `WebSocketClient`
 5. `AudioPlayer` queues and plays audio in order

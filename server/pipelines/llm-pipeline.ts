@@ -1,6 +1,6 @@
 /**
  * Language Model Pipeline
- * Uses SmolLM2 via Transformers.js for text generation
+ * Uses Gemma via Transformers.js for text generation
  */
 
 import { pipeline } from '@huggingface/transformers';
@@ -8,7 +8,7 @@ import type { LLMConfig } from '../config';
 import type { LLMPipeline } from './types';
 import type { Message } from '../../shared/types';
 
-export class SmolLMPipeline implements LLMPipeline {
+export class GemmaLLMPipeline implements LLMPipeline {
   private config: LLMConfig;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private pipe: any = null;
@@ -47,7 +47,10 @@ export class SmolLMPipeline implements LLMPipeline {
       return_full_text: false,
     });
 
-    const response = result[0]?.generated_text?.trim() || '';
+    let response = result[0]?.generated_text?.trim() || '';
+    
+    // Clean up any trailing turn markers
+    response = response.replace(/<end_of_turn>.*$/s, '').trim();
 
     // Send response character by character for streaming effect
     for (const char of response) {
@@ -57,21 +60,23 @@ export class SmolLMPipeline implements LLMPipeline {
     return response;
   }
 
-  /** Format messages using ChatML template */
+  /** Format messages using Gemma chat template */
   private formatChatPrompt(messages: Message[]): string {
     let prompt = '';
 
     for (const msg of messages) {
       if (msg.role === 'system') {
-        prompt += `<|im_start|>system\n${msg.content}<|im_end|>\n`;
+        // Gemma doesn't have a dedicated system role, prepend to first user message
+        // or include as a user turn with context
+        prompt += `<start_of_turn>user\nSystem: ${msg.content}<end_of_turn>\n`;
       } else if (msg.role === 'user') {
-        prompt += `<|im_start|>user\n${msg.content}<|im_end|>\n`;
+        prompt += `<start_of_turn>user\n${msg.content}<end_of_turn>\n`;
       } else if (msg.role === 'assistant') {
-        prompt += `<|im_start|>assistant\n${msg.content}<|im_end|>\n`;
+        prompt += `<start_of_turn>model\n${msg.content}<end_of_turn>\n`;
       }
     }
 
-    prompt += '<|im_start|>assistant\n';
+    prompt += '<start_of_turn>model\n';
     return prompt;
   }
 
@@ -79,4 +84,7 @@ export class SmolLMPipeline implements LLMPipeline {
     return this.ready;
   }
 }
+
+// Keep backward compatibility alias
+export { GemmaLLMPipeline as SmolLMPipeline };
 
