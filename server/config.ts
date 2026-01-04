@@ -40,7 +40,7 @@ export const config: ServerConfig = {
   },
 
   llm: {
-    model: process.env.LLM_MODEL || 'google/functiongemma-270m-it',
+    model: process.env.LLM_MODEL || 'HuggingFaceTB/SmolLM2-1.7B-Instruct',
     dtype: 'q4',
     systemPrompt:
       process.env.SYSTEM_PROMPT ||

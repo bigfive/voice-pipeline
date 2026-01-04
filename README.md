@@ -9,7 +9,7 @@ Browser                    Server (Node.js + Transformers.js)
 ┌─────────────┐           ┌──────────────────────────────────┐
 │  Capture    │──audio───▶│  Whisper (STT)                   │
 │  Audio      │           │          ↓                       │
-│             │           │  FunctionGemma 270M (LLM)        │
+│             │           │  SmolLM2 1.7B (LLM)              │
 │  Play       │◀──audio───│          ↓                       │
 │  Audio      │           │  SpeechT5 (TTS)                  │
 │             │           │                                  │
@@ -53,7 +53,7 @@ All models run locally via Transformers.js:
 | Component | Model | Size |
 |-----------|-------|------|
 | STT | [Xenova/whisper-small](https://huggingface.co/Xenova/whisper-small) | ~250MB |
-| LLM | [google/functiongemma-270m-it](https://huggingface.co/google/functiongemma-270m-it) | ~270MB |
+| LLM | [SmolLM2-1.7B-Instruct](https://huggingface.co/HuggingFaceTB/SmolLM2-1.7B-Instruct) | ~1.7GB |
 | TTS | [Xenova/speecht5_tts](https://huggingface.co/Xenova/speecht5_tts) | ~250MB |
 
 ## Configuration
@@ -70,7 +70,7 @@ export const config: ServerConfig = {
   },
 
   llm: {
-    model: process.env.LLM_MODEL || 'google/functiongemma-270m-it',
+    model: process.env.LLM_MODEL || 'HuggingFaceTB/SmolLM2-1.7B-Instruct',
     systemPrompt: process.env.SYSTEM_PROMPT || '...',
     maxNewTokens: Number(process.env.MAX_TOKENS) || 200,
     // ...
@@ -101,7 +101,7 @@ export const config: ServerConfig = {
 │   ├── pipelines/                # AI Pipeline abstractions
 │   │   ├── types.ts              # Pipeline interfaces
 │   │   ├── stt-pipeline.ts       # Speech-to-Text (Whisper)
-│   │   ├── llm-pipeline.ts       # Language Model (Gemma)
+│   │   ├── llm-pipeline.ts       # Language Model (SmolLM2)
 │   │   └── tts-pipeline.ts       # Text-to-Speech (SpeechT5)
 │   │
 │   ├── services/                 # Domain services
@@ -157,7 +157,7 @@ export const config: ServerConfig = {
 2. **Server** accumulates audio, then `VoiceHandler` triggers processing
 3. `VoiceService` orchestrates the pipeline:
    - `STTPipeline` transcribes audio using Whisper
-   - `LLMPipeline` generates response with FunctionGemma
+   - `LLMPipeline` generates response with SmolLM2
    - `TTSPipeline` synthesizes each sentence with SpeechT5
 4. **Browser** receives audio chunks via `WebSocketClient`
 5. `AudioPlayer` queues and plays audio in order
