@@ -1,29 +1,30 @@
 /**
  * Test script for native backends (whisper.cpp, llama.cpp, sherpa-onnx)
- * Run with: npx tsx scripts/test-native.ts
+ * Run with: npx tsx tests/test-native.ts
+ *
+ * Expects binaries and models in ~/.cache/voice-pipeline/
+ * Run `npx voice-pipeline setup` to download them.
  */
 
-import { existsSync, writeFileSync, unlinkSync } from 'fs';
-import { NativeWhisperSTT, NativeLlama, NativeSherpaOnnxTTS } from '../lib/backends/native';
+import { existsSync, writeFileSync } from 'fs';
+import { NativeWhisperSTT, NativeLlama, NativeSherpaOnnxTTS, defaultPaths } from '../src/backends/native';
+import type { AudioPlayable } from '../src/types';
 
 // ============ Configuration ============
 
 const CONFIG = {
   stt: {
-    binaryPath: './bin/whisper-cli',
-    modelPath: './models/whisper-large-v3-turbo-q8.bin',
+    ...defaultPaths.whisper,
     language: 'en',
   },
   llm: {
-    binaryPath: './bin/llama-cli',
-    modelPath: './models/smollm2-1.7b-instruct-q4_k_m.gguf',
+    ...defaultPaths.llama,
     maxNewTokens: 50,
     temperature: 0.7,
     gpuLayers: 0,
   },
   tts: {
-    binaryPath: './bin/sherpa-onnx-offline-tts',
-    modelDir: './models/vits-piper-en_US-lessac-medium',
+    ...defaultPaths.sherpaOnnxTts,
   },
 };
 
@@ -40,22 +41,6 @@ function pass(test: string): void {
 function fail(test: string, error: unknown): void {
   console.log(`❌ FAIL: ${test}`);
   console.error(`   Error: ${error instanceof Error ? error.message : error}`);
-}
-
-function generateTestAudio(durationSec: number = 2, sampleRate: number = 16000): Float32Array {
-  // Generate a simple sine wave (440Hz tone) for testing
-  const samples = durationSec * sampleRate;
-  const audio = new Float32Array(samples);
-  const frequency = 440; // A4 note
-
-  for (let i = 0; i < samples; i++) {
-    // Sine wave with fade in/out to avoid clicks
-    const t = i / sampleRate;
-    const envelope = Math.min(1, t * 10) * Math.min(1, (durationSec - t) * 10);
-    audio[i] = Math.sin(2 * Math.PI * frequency * t) * 0.3 * envelope;
-  }
-
-  return audio;
 }
 
 function generateSpeechLikeAudio(durationSec: number = 3, sampleRate: number = 16000): Float32Array {
@@ -149,18 +134,15 @@ async function testLLM(): Promise<boolean> {
       { role: 'user' as const, content: 'Say hello in exactly 5 words.' },
     ];
 
-    let response = '';
     const tokens: string[] = [];
-
     const result = await llm.generate(messages, (token) => {
       tokens.push(token);
     });
 
-    response = result;
-    console.log(`   Response: "${response.trim()}"`);
+    console.log(`   Response: "${result.trim()}"`);
     console.log(`   Tokens received: ${tokens.length}`);
 
-    if (response.length > 0) {
+    if (result.length > 0) {
       pass('Generation completed');
     } else {
       fail('Generation', 'Empty response');
@@ -200,7 +182,16 @@ async function testTTS(): Promise<boolean> {
     // Test synthesis
     console.log('\n   Synthesizing speech...');
     const testText = 'Hello, this is a test of the text to speech system.';
-    const { audio, sampleRate } = await tts.synthesize(testText);
+    const playable = await tts.synthesize(testText);
+
+    // Get raw audio from the AudioPlayable
+    const rawAudio = playable.getRawAudio();
+    if (!rawAudio) {
+      fail('Synthesis', 'No raw audio available');
+      return false;
+    }
+
+    const { audio, sampleRate } = rawAudio;
 
     console.log(`   Text: "${testText}"`);
     console.log(`   Audio samples: ${audio.length}`);
@@ -236,7 +227,7 @@ async function testEndToEnd(): Promise<boolean> {
   log('Testing End-to-End Pipeline');
 
   try {
-    const { VoicePipeline } = await import('../lib');
+    const { VoicePipeline } = await import('../src/voice-pipeline');
 
     const stt = new NativeWhisperSTT(CONFIG.stt);
     const llm = new NativeLlama(CONFIG.llm);
@@ -270,9 +261,14 @@ async function testEndToEnd(): Promise<boolean> {
       onResponseChunk: (chunk) => {
         response += chunk;
       },
-      onAudio: (audio, sampleRate) => {
+      onAudio: (playable: AudioPlayable) => {
         audioReceived = true;
-        console.log(`   Audio received: ${audio.length} samples @ ${sampleRate}Hz`);
+        const rawAudio = playable.getRawAudio();
+        if (rawAudio) {
+          console.log(`   Audio received: ${rawAudio.audio.length} samples @ ${rawAudio.sampleRate}Hz`);
+        } else {
+          console.log(`   Audio received (no raw data available)`);
+        }
       },
       onComplete: () => {
         completed = true;
@@ -339,4 +335,3 @@ main().catch((err) => {
   console.error('Test suite failed:', err);
   process.exit(1);
 });
-
