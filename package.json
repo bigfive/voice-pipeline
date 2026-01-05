@@ -1,14 +1,14 @@
 {
-  "name": "voice-assistant",
-  "version": "4.0.0",
+  "name": "voice-pipeline",
+  "version": "5.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "dev:server": "tsx watch server/index.ts",
-    "dev:all": "concurrently \"npm run dev:server\" \"npm run dev\"",
+    "dev:server-transformers": "tsx watch examples/server-transformers/server.ts",
+    "dev:server-native": "tsx watch examples/server-native/server.ts",
     "build": "tsc && vite build",
-    "cleanup": "./scripts/cleanup.sh",
-    "cleanup:cache": "./scripts/cleanup.sh --cache"
+    "download-models": "./scripts/download-models.sh",
+    "test:native": "tsx scripts/test-native.ts"
   },
   "dependencies": {
     "@huggingface/transformers": "^3.8.1",
@@ -19,7 +19,6 @@
     "@types/node": "^20.10.0",
     "@types/number-to-words": "^1.2.3",
     "@types/ws": "^8.5.10",
-    "concurrently": "^8.2.0",
     "tsx": "^4.7.0",
     "typescript": "^5.3.0",
     "vite": "^7.3.0"

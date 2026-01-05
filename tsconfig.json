@@ -15,6 +15,5 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["client", "server", "shared"]
+  "include": ["lib", "examples"]
 }
-

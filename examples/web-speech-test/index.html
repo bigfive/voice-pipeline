@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Web Speech API Test</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      min-height: 100vh;
+      margin: 0;
+      padding: 2rem;
+      color: #e8e8e8;
+    }
+
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      font-weight: 300;
+      font-size: 2.5rem;
+      margin-bottom: 0.5rem;
+      background: linear-gradient(90deg, #64ffda, #48cae4);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .subtitle {
+      color: #888;
+      margin-bottom: 2rem;
+    }
+
+    .card {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 16px;
+      padding: 2rem;
+      backdrop-filter: blur(10px);
+      margin-bottom: 1.5rem;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 0.5rem;
+      color: #aaa;
+      font-size: 0.875rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    textarea {
+      width: 100%;
+      padding: 1rem;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 8px;
+      background: rgba(0, 0, 0, 0.3);
+      color: #fff;
+      font-size: 1rem;
+      resize: vertical;
+      min-height: 100px;
+      font-family: inherit;
+    }
+
+    textarea:focus {
+      outline: none;
+      border-color: #64ffda;
+    }
+
+    select {
+      width: 100%;
+      padding: 0.75rem 1rem;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 8px;
+      background: rgba(0, 0, 0, 0.3);
+      color: #fff;
+      font-size: 1rem;
+      cursor: pointer;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%23888' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10l-5 5z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 1rem center;
+    }
+
+    select:focus {
+      outline: none;
+      border-color: #64ffda;
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+
+    .slider-group {
+      margin-top: 1rem;
+    }
+
+    .slider-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 0.5rem;
+    }
+
+    .slider-value {
+      color: #64ffda;
+      font-weight: 500;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      height: 6px;
+      border-radius: 3px;
+      background: rgba(255, 255, 255, 0.1);
+      appearance: none;
+      cursor: pointer;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #64ffda;
+      cursor: pointer;
+    }
+
+    button {
+      padding: 1rem 2rem;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .speak-btn {
+      background: linear-gradient(135deg, #64ffda, #48cae4);
+      color: #1a1a2e;
+      width: 100%;
+      margin-top: 1.5rem;
+    }
+
+    .speak-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 30px rgba(100, 255, 218, 0.3);
+    }
+
+    .speak-btn:active {
+      transform: translateY(0);
+    }
+
+    .speak-btn.speaking {
+      background: linear-gradient(135deg, #ff6b6b, #ee5a5a);
+    }
+
+    .status {
+      text-align: center;
+      margin-top: 1rem;
+      color: #888;
+      font-size: 0.875rem;
+    }
+
+    .status.speaking {
+      color: #64ffda;
+    }
+
+    .presets {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin-top: 1rem;
+    }
+
+    .preset-btn {
+      padding: 0.5rem 1rem;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: #ccc;
+      font-size: 0.875rem;
+    }
+
+    .preset-btn:hover {
+      background: rgba(255, 255, 255, 0.15);
+      border-color: #64ffda;
+      color: #fff;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔊 Web Speech API</h1>
+    <p class="subtitle">Test text-to-speech synthesis</p>
+
+    <div class="card">
+      <label for="text">Text to speak</label>
+      <textarea id="text" placeholder="Enter text to speak...">Hello! I'm a voice assistant powered by the Web Speech API. This runs entirely in your browser with zero dependencies.</textarea>
+
+      <div class="presets">
+        <button class="preset-btn" onclick="setText('The quick brown fox jumps over the lazy dog.')">Quick fox</button>
+        <button class="preset-btn" onclick="setText('Hello! How can I help you today?')">Greeting</button>
+        <button class="preset-btn" onclick="setText('The weather today is sunny with a high of 72 degrees.')">Weather</button>
+        <button class="preset-btn" onclick="setText('I think therefore I am.')">Philosophy</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <label for="voice">Voice</label>
+      <select id="voice"></select>
+
+      <div class="controls">
+        <div class="slider-group">
+          <div class="slider-header">
+            <label for="rate">Speed</label>
+            <span class="slider-value" id="rateValue">1.1x</span>
+          </div>
+          <input type="range" id="rate" min="0.5" max="2" step="0.1" value="1.1">
+        </div>
+
+        <div class="slider-group">
+          <div class="slider-header">
+            <label for="pitch">Pitch</label>
+            <span class="slider-value" id="pitchValue">0.6</span>
+          </div>
+          <input type="range" id="pitch" min="0.5" max="2" step="0.1" value="0.6">
+        </div>
+      </div>
+
+      <button class="speak-btn" id="speakBtn" onclick="toggleSpeak()">
+        🔊 Speak
+      </button>
+
+      <div class="status" id="status">Ready</div>
+    </div>
+  </div>
+
+  <script>
+    const textEl = document.getElementById('text');
+    const voiceEl = document.getElementById('voice');
+    const rateEl = document.getElementById('rate');
+    const pitchEl = document.getElementById('pitch');
+    const rateValue = document.getElementById('rateValue');
+    const pitchValue = document.getElementById('pitchValue');
+    const speakBtn = document.getElementById('speakBtn');
+    const statusEl = document.getElementById('status');
+
+    let voices = [];
+    let isSpeaking = false;
+
+    // Load voices
+    function loadVoices() {
+      voices = speechSynthesis.getVoices();
+      voiceEl.innerHTML = '';
+
+      // Sort voices: prioritize English, then by name
+      const sorted = voices.sort((a, b) => {
+        const aEn = a.lang.startsWith('en');
+        const bEn = b.lang.startsWith('en');
+        if (aEn && !bEn) return -1;
+        if (!aEn && bEn) return 1;
+        return a.name.localeCompare(b.name);
+      });
+
+      sorted.forEach((voice, i) => {
+        const option = document.createElement('option');
+        option.value = i;
+        option.textContent = `${voice.name} (${voice.lang})`;
+        if (voice.default) option.selected = true;
+        voiceEl.appendChild(option);
+      });
+
+      // Try to select Martha as default voice
+      const marthaVoice = voices.findIndex(v => v.name.includes('Martha'));
+      if (marthaVoice >= 0) {
+        voiceEl.value = marthaVoice;
+      } else {
+        // Fallback to other good voices
+        const goodVoice = voices.findIndex(v =>
+          v.name.includes('Samantha') ||
+          v.name.includes('Daniel') ||
+          v.name.includes('Google') ||
+          (v.lang === 'en-US' && v.localService)
+        );
+        if (goodVoice >= 0) voiceEl.value = goodVoice;
+      }
+    }
+
+    // Chrome loads voices async
+    speechSynthesis.onvoiceschanged = loadVoices;
+    loadVoices();
+
+    // Update slider values
+    rateEl.oninput = () => rateValue.textContent = `${rateEl.value}x`;
+    pitchEl.oninput = () => pitchValue.textContent = pitchEl.value;
+
+    function setText(text) {
+      textEl.value = text;
+    }
+
+    function toggleSpeak() {
+      if (isSpeaking) {
+        speechSynthesis.cancel();
+        return;
+      }
+
+      const text = textEl.value.trim();
+      if (!text) return;
+
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.voice = voices[voiceEl.value];
+      utterance.rate = parseFloat(rateEl.value);
+      utterance.pitch = parseFloat(pitchEl.value);
+
+      utterance.onstart = () => {
+        isSpeaking = true;
+        speakBtn.textContent = '⏹️ Stop';
+        speakBtn.classList.add('speaking');
+        statusEl.textContent = 'Speaking...';
+        statusEl.classList.add('speaking');
+      };
+
+      utterance.onend = () => {
+        isSpeaking = false;
+        speakBtn.textContent = '🔊 Speak';
+        speakBtn.classList.remove('speaking');
+        statusEl.textContent = 'Ready';
+        statusEl.classList.remove('speaking');
+      };
+
+      utterance.onerror = (e) => {
+        console.error('Speech error:', e);
+        isSpeaking = false;
+        speakBtn.textContent = '🔊 Speak';
+        speakBtn.classList.remove('speaking');
+        statusEl.textContent = `Error: ${e.error}`;
+      };
+
+      speechSynthesis.speak(utterance);
+    }
+
+    // Keyboard shortcut
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && e.metaKey) {
+        e.preventDefault();
+        toggleSpeak();
+      }
+    });
+  </script>
+</body>
+</html>
+

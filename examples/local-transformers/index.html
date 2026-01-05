@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Voice Assistant - Local (Transformers.js)</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: #0a0a0a; color: #e5e5e5; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 2rem; }
+    h1 { font-size: 1.5rem; margin-bottom: 0.5rem; }
+    .subtitle { color: #888; font-size: 0.9rem; margin-bottom: 1.5rem; }
+    #status { background: #1a1a1a; padding: 0.75rem 1.5rem; border-radius: 2rem; margin-bottom: 1.5rem; font-size: 0.9rem; }
+    #conversation { width: 100%; max-width: 600px; background: #111; border-radius: 1rem; padding: 1rem; min-height: 300px; max-height: 400px; overflow-y: auto; margin-bottom: 1.5rem; }
+    .message { padding: 0.75rem; margin-bottom: 0.5rem; border-radius: 0.5rem; }
+    .message.user { background: #1e3a5f; }
+    .message.assistant { background: #2d2d2d; }
+    .message.system { background: #1a1a1a; color: #888; font-style: italic; }
+    .message strong { display: block; font-size: 0.8rem; color: #888; margin-bottom: 0.25rem; }
+    .controls { display: flex; gap: 1rem; }
+    button { padding: 1rem 2rem; border-radius: 0.5rem; border: none; cursor: pointer; font-size: 1rem; transition: all 0.2s; }
+    #recordBtn { background: #3b82f6; color: white; min-width: 180px; }
+    #recordBtn:hover:not(:disabled) { background: #2563eb; }
+    #recordBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+    #recordBtn.recording { background: #ef4444; }
+    #clearBtn { background: #333; color: #e5e5e5; }
+    #clearBtn:hover { background: #444; }
+    footer { margin-top: 2rem; color: #666; font-size: 0.8rem; }
+  </style>
+</head>
+<body>
+  <h1>Voice Assistant</h1>
+  <p class="subtitle">Browser-only • WebGPU inference • Press &amp; hold to speak</p>
+  <div id="status">Initializing...</div>
+  <div id="conversation">
+    <div class="message system">Loading models...</div>
+  </div>
+  <div class="controls">
+    <button id="recordBtn" disabled>🎤 Hold to Speak</button>
+    <button id="clearBtn">Clear</button>
+  </div>
+  <footer>100% local • No server required</footer>
+  <script type="module" src="./main.ts"></script>
+</body>
+</html>
+

@@ -3,302 +3,48 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Voice Assistant</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <title>Voice Pipeline - Examples</title>
   <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-
-    :root {
-      --bg-primary: #0a0a0f;
-      --bg-secondary: #12121a;
-      --bg-tertiary: #1a1a25;
-      --accent-cyan: #00ffd5;
-      --accent-magenta: #ff006e;
-      --accent-amber: #ffbe0b;
-      --text-primary: #f0f0f5;
-      --text-secondary: #8888a0;
-      --text-muted: #55556a;
-      --border: rgba(255, 255, 255, 0.08);
-    }
-
-    body {
-      font-family: 'Outfit', -apple-system, sans-serif;
-      background: var(--bg-primary);
-      min-height: 100vh;
-      color: var(--text-primary);
-      display: flex;
-      flex-direction: column;
-    }
-
-    .container {
-      display: flex;
-      flex-direction: column;
-      height: 100vh;
-      max-width: 640px;
-      margin: 0 auto;
-      width: 100%;
-    }
-
-    header {
-      padding: 1.5rem 1.5rem 1rem;
-      border-bottom: 1px solid var(--border);
-    }
-
-    header h1 {
-      font-size: 1.25rem;
-      font-weight: 500;
-      letter-spacing: -0.02em;
-    }
-
-    .subtitle {
-      font-size: 0.75rem;
-      color: var(--text-muted);
-      font-family: 'JetBrains Mono', monospace;
-      margin-top: 0.25rem;
-    }
-
-    .status-bar {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.75rem 1.5rem;
-      background: var(--bg-secondary);
-      border-bottom: 1px solid var(--border);
-      font-size: 0.8rem;
-      font-family: 'JetBrains Mono', monospace;
-    }
-
-    .status-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: var(--text-muted);
-      transition: all 0.3s;
-    }
-
-    .status-dot.connecting {
-      background: var(--accent-amber);
-      animation: pulse-amber 1.5s infinite;
-    }
-
-    .status-dot.idle {
-      background: var(--accent-cyan);
-      box-shadow: 0 0 8px var(--accent-cyan);
-    }
-
-    .status-dot.listening {
-      background: var(--accent-magenta);
-      animation: pulse-magenta 0.8s infinite;
-    }
-
-    .status-dot.processing {
-      background: var(--accent-amber);
-      animation: spin 1s linear infinite;
-    }
-
-    .status-dot.speaking {
-      background: var(--accent-cyan);
-      animation: pulse-cyan 0.5s infinite;
-    }
-
-    @keyframes pulse-amber {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.4; }
-    }
-
-    @keyframes pulse-magenta {
-      0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 0, 110, 0.4); }
-      50% { transform: scale(1.2); box-shadow: 0 0 12px rgba(255, 0, 110, 0.6); }
-    }
-
-    @keyframes pulse-cyan {
-      0%, 100% { box-shadow: 0 0 8px var(--accent-cyan); }
-      50% { box-shadow: 0 0 16px var(--accent-cyan), 0 0 24px var(--accent-cyan); }
-    }
-
-    @keyframes spin {
-      from { transform: rotate(0deg); }
-      to { transform: rotate(360deg); }
-    }
-
-    .conversation {
-      flex: 1;
-      overflow-y: auto;
-      padding: 1rem 1.5rem;
-      display: flex;
-      flex-direction: column;
-      gap: 1rem;
-    }
-
-    .message {
-      animation: slideUp 0.2s ease-out;
-    }
-
-    @keyframes slideUp {
-      from { opacity: 0; transform: translateY(8px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    .message.system {
-      text-align: center;
-      font-size: 0.8rem;
-      color: var(--text-muted);
-      padding: 2rem;
-    }
-
-    .message.user {
-      align-self: flex-end;
-      max-width: 85%;
-    }
-
-    .message.user p {
-      background: var(--accent-magenta);
-      color: white;
-      padding: 0.75rem 1rem;
-      border-radius: 16px 16px 4px 16px;
-      font-size: 0.9rem;
-      line-height: 1.5;
-    }
-
-    .message.assistant {
-      align-self: flex-start;
-      max-width: 85%;
-    }
-
-    .message.assistant p {
-      background: var(--bg-tertiary);
-      border: 1px solid var(--border);
-      padding: 0.75rem 1rem;
-      border-radius: 16px 16px 16px 4px;
-      font-size: 0.9rem;
-      line-height: 1.5;
-    }
-
-    .controls {
-      padding: 1.5rem;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 1rem;
-      border-top: 1px solid var(--border);
-      background: var(--bg-secondary);
-    }
-
-    .ptt-button {
-      width: 120px;
-      height: 120px;
-      border-radius: 50%;
-      border: 2px solid var(--border);
-      background: var(--bg-tertiary);
-      color: var(--text-secondary);
-      cursor: pointer;
-      transition: all 0.2s;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 0.5rem;
-      user-select: none;
-      -webkit-user-select: none;
-      touch-action: manipulation;
-    }
-
-    .ptt-button:hover:not(:disabled) {
-      border-color: var(--accent-cyan);
-      color: var(--text-primary);
-    }
-
-    .ptt-button:disabled {
-      opacity: 0.4;
-      cursor: not-allowed;
-    }
-
-    .ptt-button.active {
-      background: var(--accent-magenta);
-      border-color: var(--accent-magenta);
-      color: white;
-      transform: scale(0.95);
-      box-shadow: 0 0 40px rgba(255, 0, 110, 0.4);
-    }
-
-    .mic-icon {
-      width: 32px;
-      height: 32px;
-    }
-
-    .button-text {
-      font-size: 0.7rem;
-      font-family: 'JetBrains Mono', monospace;
-      letter-spacing: 0.05em;
-      text-transform: uppercase;
-    }
-
-    .clear-button {
-      background: none;
-      border: 1px solid var(--border);
-      color: var(--text-muted);
-      padding: 0.5rem 1rem;
-      border-radius: 6px;
-      font-size: 0.75rem;
-      font-family: 'JetBrains Mono', monospace;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-
-    .clear-button:hover {
-      border-color: var(--text-muted);
-      color: var(--text-secondary);
-    }
-
-    footer {
-      padding: 0.75rem 1.5rem;
-      text-align: center;
-      font-size: 0.7rem;
-      color: var(--text-muted);
-      font-family: 'JetBrains Mono', monospace;
-      border-top: 1px solid var(--border);
-    }
-
-    footer code {
-      color: var(--accent-cyan);
-    }
-
-    /* Scrollbar */
-    .conversation::-webkit-scrollbar {
-      width: 4px;
-    }
-
-    .conversation::-webkit-scrollbar-track {
-      background: transparent;
-    }
-
-    .conversation::-webkit-scrollbar-thumb {
-      background: var(--border);
-      border-radius: 2px;
-    }
-
-    /* Mobile adjustments */
-    @media (max-width: 480px) {
-      .ptt-button {
-        width: 100px;
-        height: 100px;
-      }
-
-      .mic-icon {
-        width: 28px;
-        height: 28px;
-      }
-    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: #0a0a0a; color: #e5e5e5; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2rem; }
+    h1 { font-size: 2rem; margin-bottom: 0.5rem; }
+    .subtitle { color: #888; font-size: 1rem; margin-bottom: 2rem; }
+    .examples { display: flex; flex-direction: column; gap: 1rem; width: 100%; max-width: 500px; }
+    a { display: block; background: #1a1a1a; padding: 1.5rem; border-radius: 0.75rem; text-decoration: none; color: #e5e5e5; transition: all 0.2s; }
+    a:hover { background: #252525; transform: translateY(-2px); }
+    a h2 { font-size: 1.1rem; margin-bottom: 0.5rem; }
+    a p { color: #888; font-size: 0.9rem; }
+    .badge { display: inline-block; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-size: 0.75rem; margin-right: 0.5rem; }
+    .badge.browser { background: #3b82f6; }
+    .badge.server { background: #10b981; }
+    footer { margin-top: 3rem; color: #666; font-size: 0.8rem; text-align: center; }
+    footer a { display: inline; background: none; padding: 0; color: #888; }
+    footer a:hover { background: none; color: #e5e5e5; transform: none; }
   </style>
 </head>
 <body>
-  <div id="app"></div>
-  <script type="module" src="/client/main.ts"></script>
+  <h1>Voice Pipeline</h1>
+  <p class="subtitle">Isomorphic STT → LLM → TTS pipeline library</p>
+
+  <div class="examples">
+    <a href="/examples/local-transformers/index.html">
+      <h2><span class="badge browser">Browser</span> Local Transformers.js</h2>
+      <p>All inference runs in the browser via WebGPU. No server required.</p>
+    </a>
+
+    <a href="/examples/server-transformers/index.html">
+      <h2><span class="badge server">Server</span> Server Transformers.js</h2>
+      <p>Inference on Node.js server using Transformers.js. Start server first.</p>
+    </a>
+
+    <a href="/examples/server-native/index.html">
+      <h2><span class="badge server">Server</span> Server Native</h2>
+      <p>Inference using native binaries (whisper.cpp, llama.cpp, piper).</p>
+    </a>
+  </div>
+
+  <footer>
+    <p>100% local inference • No data leaves your machine</p>
+  </footer>
 </body>
 </html>
