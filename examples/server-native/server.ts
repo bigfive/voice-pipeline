@@ -1,11 +1,11 @@
 /**
- * Server Example - Native Backends (whisper.cpp, llama.cpp, piper)
+ * Server Example - Native Backends (whisper.cpp, llama.cpp, sherpa-onnx)
  */
 
 import { createServer } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
 import { VoicePipeline } from '../../lib';
-import { NativeWhisperPipeline, NativeLlamaPipeline, NativePiperPipeline } from '../../lib/backends/native';
+import { NativeWhisperPipeline, NativeLlamaPipeline, NativeSherpaOnnxTTSPipeline } from '../../lib/backends/native';
 import type { ClientMessage, ServerMessage } from './protocol';
 
 const PORT = 8081;
@@ -13,20 +13,20 @@ const PORT = 8081;
 // Configure paths to native binaries and models
 const CONFIG = {
   stt: {
-    binaryPath: process.env.WHISPER_PATH || '/opt/homebrew/bin/whisper-cli',
-    modelPath: process.env.WHISPER_MODEL || './models/whisper-small.bin',
+    binaryPath: './bin/whisper-cli',
+    modelPath: './models/whisper-large-v3-turbo-q8.bin',
     language: 'en',
   },
   llm: {
-    binaryPath: process.env.LLAMA_PATH || '/opt/homebrew/bin/llama-cli',
-    modelPath: process.env.LLAMA_MODEL || './models/smollm2-1.7b-instruct-q4_k_m.gguf',
+    binaryPath: './bin/llama-simple',
+    modelPath: './models/smollm2-1.7b-instruct-q4_k_m.gguf',
     maxNewTokens: 140,
     temperature: 0.7,
-    gpuLayers: Number(process.env.GPU_LAYERS) || 0,
+    gpuLayers: 0,
   },
   tts: {
-    binaryPath: process.env.PIPER_PATH || '/usr/local/bin/piper/piper',
-    modelPath: process.env.PIPER_MODEL || './models/en_US-lessac-medium.onnx',
+    binaryPath: './bin/sherpa-onnx-offline-tts',
+    modelDir: './models/vits-piper-en_US-lessac-medium',
   },
   systemPrompt: 'You are a helpful voice assistant. Keep responses brief—1-2 sentences. Speak naturally.',
 };
@@ -94,13 +94,13 @@ async function handleEndAudio(ws: WebSocket, pipeline: VoicePipeline): Promise<v
 
 async function main(): Promise<void> {
   console.log('Initializing native pipelines...');
-  console.log(`  Whisper: ${CONFIG.stt.binaryPath}`);
-  console.log(`  Llama: ${CONFIG.llm.binaryPath}`);
-  console.log(`  Piper: ${CONFIG.tts.binaryPath}`);
+  console.log(`  Whisper:      ${CONFIG.stt.binaryPath}`);
+  console.log(`  Llama:        ${CONFIG.llm.binaryPath}`);
+  console.log(`  Sherpa-ONNX:  ${CONFIG.tts.binaryPath}`);
 
   const stt = new NativeWhisperPipeline(CONFIG.stt);
   const llm = new NativeLlamaPipeline(CONFIG.llm);
-  const tts = new NativePiperPipeline(CONFIG.tts);
+  const tts = new NativeSherpaOnnxTTSPipeline(CONFIG.tts);
 
   const pipeline = new VoicePipeline({ stt, llm, tts, systemPrompt: CONFIG.systemPrompt });
   await pipeline.initialize();

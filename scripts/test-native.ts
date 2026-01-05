@@ -1,29 +1,29 @@
 /**
- * Test script for native backends (whisper.cpp, llama.cpp, piper)
+ * Test script for native backends (whisper.cpp, llama.cpp, sherpa-onnx)
  * Run with: npx tsx scripts/test-native.ts
  */
 
 import { existsSync, writeFileSync, unlinkSync } from 'fs';
-import { NativeWhisperPipeline, NativeLlamaPipeline, NativePiperPipeline } from '../lib/backends/native';
+import { NativeWhisperPipeline, NativeLlamaPipeline, NativeSherpaOnnxTTSPipeline } from '../lib/backends/native';
 
 // ============ Configuration ============
 
 const CONFIG = {
   stt: {
-    binaryPath: process.env.WHISPER_PATH || '/opt/homebrew/bin/whisper-cli',
-    modelPath: process.env.WHISPER_MODEL || './models/whisper-small.bin',
+    binaryPath: './bin/whisper-cli',
+    modelPath: './models/whisper-large-v3-turbo-q8.bin',
     language: 'en',
   },
   llm: {
-    binaryPath: process.env.LLAMA_PATH || '/opt/homebrew/bin/llama-cli',
-    modelPath: process.env.LLAMA_MODEL || './models/smollm2-1.7b-instruct-q4_k_m.gguf',
+    binaryPath: './bin/llama-cli',
+    modelPath: './models/smollm2-1.7b-instruct-q4_k_m.gguf',
     maxNewTokens: 50,
     temperature: 0.7,
     gpuLayers: 0,
   },
   tts: {
-    binaryPath: process.env.PIPER_PATH || '/usr/local/bin/piper/piper',
-    modelPath: process.env.PIPER_MODEL || './models/en_US-lessac-medium.onnx',
+    binaryPath: './bin/sherpa-onnx-offline-tts',
+    modelDir: './models/vits-piper-en_US-lessac-medium',
   },
 };
 
@@ -175,7 +175,7 @@ async function testLLM(): Promise<boolean> {
 }
 
 async function testTTS(): Promise<boolean> {
-  log('Testing TTS (piper)');
+  log('Testing TTS (sherpa-onnx)');
 
   try {
     // Check binary exists
@@ -185,15 +185,15 @@ async function testTTS(): Promise<boolean> {
     }
     pass('Binary exists');
 
-    // Check model exists
-    if (!existsSync(CONFIG.tts.modelPath)) {
-      fail('Model exists', `Not found at ${CONFIG.tts.modelPath}`);
+    // Check model directory exists
+    if (!existsSync(CONFIG.tts.modelDir)) {
+      fail('Model directory exists', `Not found at ${CONFIG.tts.modelDir}`);
       return false;
     }
-    pass('Model exists');
+    pass('Model directory exists');
 
     // Initialize pipeline
-    const tts = new NativePiperPipeline(CONFIG.tts);
+    const tts = new NativeSherpaOnnxTTSPipeline(CONFIG.tts);
     await tts.initialize();
     pass('Pipeline initialized');
 
@@ -240,7 +240,7 @@ async function testEndToEnd(): Promise<boolean> {
 
     const stt = new NativeWhisperPipeline(CONFIG.stt);
     const llm = new NativeLlamaPipeline(CONFIG.llm);
-    const tts = new NativePiperPipeline(CONFIG.tts);
+    const tts = new NativeSherpaOnnxTTSPipeline(CONFIG.tts);
 
     const pipeline = new VoicePipeline({
       stt,
@@ -302,9 +302,9 @@ async function testEndToEnd(): Promise<boolean> {
 async function main(): Promise<void> {
   console.log('\n🧪 Native Backend Test Suite\n');
   console.log('Configuration:');
-  console.log(`  Whisper: ${CONFIG.stt.binaryPath}`);
-  console.log(`  Llama:   ${CONFIG.llm.binaryPath}`);
-  console.log(`  Piper:   ${CONFIG.tts.binaryPath}`);
+  console.log(`  Whisper:      ${CONFIG.stt.binaryPath}`);
+  console.log(`  Llama:        ${CONFIG.llm.binaryPath}`);
+  console.log(`  Sherpa-ONNX:  ${CONFIG.tts.binaryPath}`);
 
   const results: Record<string, boolean> = {};
 
@@ -326,10 +326,10 @@ async function main(): Promise<void> {
   const passed = Object.values(results).filter(Boolean).length;
   const total = Object.keys(results).length;
 
-  console.log(`\n  STT (whisper.cpp): ${results.stt ? '✅' : '❌'}`);
-  console.log(`  LLM (llama.cpp):   ${results.llm ? '✅' : '❌'}`);
-  console.log(`  TTS (piper):       ${results.tts ? '✅' : '❌'}`);
-  console.log(`  End-to-End:        ${results.e2e ? '✅' : '❌'}`);
+  console.log(`\n  STT (whisper.cpp):   ${results.stt ? '✅' : '❌'}`);
+  console.log(`  LLM (llama.cpp):     ${results.llm ? '✅' : '❌'}`);
+  console.log(`  TTS (sherpa-onnx):   ${results.tts ? '✅' : '❌'}`);
+  console.log(`  End-to-End:          ${results.e2e ? '✅' : '❌'}`);
   console.log(`\n  Total: ${passed}/${total} passed\n`);
 
   process.exit(passed === total ? 0 : 1);
