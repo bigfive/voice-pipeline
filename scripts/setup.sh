@@ -1,19 +1,22 @@
 #!/bin/bash
 #
 # Setup script - downloads models and binaries for native backends
-# Usage: npm run setup  (or ./scripts/setup.sh)
+# Files are stored in ~/.cache/voice-pipeline/
+#
+# Usage: npx voice-pipeline setup
 #
 
 set -e
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
-MODELS_DIR="$PROJECT_DIR/models"
-BIN_DIR="$PROJECT_DIR/bin"
+# Use global cache directory
+CACHE_DIR="${VOICE_PIPELINE_CACHE:-$HOME/.cache/voice-pipeline}"
+MODELS_DIR="$CACHE_DIR/models"
+BIN_DIR="$CACHE_DIR/bin"
 
-echo "Project directory: $PROJECT_DIR"
-echo "Models directory: $MODELS_DIR"
-echo "Binaries directory: $BIN_DIR"
+echo "Voice Pipeline Setup"
+echo "===================="
+echo "Cache directory: $CACHE_DIR"
+echo ""
 
 mkdir -p "$MODELS_DIR"
 mkdir -p "$BIN_DIR"
@@ -23,7 +26,6 @@ mkdir -p "$BIN_DIR"
 cd "$MODELS_DIR"
 
 # Whisper model (whisper.cpp format - Large V3 Turbo quantized)
-echo ""
 echo "==> Downloading Whisper model (~850MB)..."
 if [ -f "whisper-large-v3-turbo-q8.bin" ]; then
   echo "    Already exists, skipping."
@@ -169,10 +171,12 @@ echo "============================================================"
 echo "Setup complete!"
 echo "============================================================"
 echo ""
+echo "Cache location: $CACHE_DIR"
+echo ""
 echo "Models:"
 ls -lh "$MODELS_DIR"
 echo ""
-echo "Binaries (bin/):"
+echo "Binaries:"
 ls -lh "$BIN_DIR"
 
 # Check for missing dependencies
@@ -185,12 +189,11 @@ if [ -n "$MISSING" ]; then
   echo "⚠️  Missing dependencies. Install with:"
   echo "  brew install$MISSING"
   echo ""
-  echo "Then re-run this script to create symlinks."
+  echo "Then re-run: npx voice-pipeline setup"
 else
   echo ""
   echo "✅ All dependencies installed!"
   echo ""
-  echo "Run the native server with:"
-  echo "  npm run dev:server-native"
+  echo "You can customize the cache location with:"
+  echo "  export VOICE_PIPELINE_CACHE=/path/to/cache"
 fi
-

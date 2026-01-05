@@ -1,0 +1,29 @@
+{
+  "name": "voice-pipeline-examples",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "dev:all": "concurrently -n vite,tf,native,speech-native,tf-speech,native-tf -c blue,green,yellow,magenta,cyan,red \"npm run dev\" \"npm run dev:transformers\" \"npm run dev:native\" \"npm run dev:speech-native\" \"npm run dev:transformers-speech\" \"npm run dev:native-transformers\"",
+    "dev:transformers": "tsx watch transformers-transformers-transformers/server.ts",
+    "dev:native": "tsx watch native-native-native/server.ts",
+    "dev:speech-native": "tsx watch speech-native-speech/server.ts",
+    "dev:transformers-speech": "tsx watch transformers-transformers-speech/server.ts",
+    "dev:native-transformers": "tsx watch native-transformers-speech/server.ts",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "voice-pipeline": "file:..",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/ws": "^8.5.10",
+    "concurrently": "^9.1.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.0",
+    "vite": "^7.3.0"
+  }
+}

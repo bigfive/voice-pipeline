@@ -1,180 +1,269 @@
 # Voice Pipeline
 
-Isomorphic STT → LLM → TTS pipeline library. Run voice assistants in the browser (WebGPU) or on a server (Transformers.js or native binaries).
+Isomorphic STT → LLM → TTS pipeline library for building voice assistants. Run entirely in the browser, on a server, or mix-and-match with browser APIs handling some parts.
 
-## Structure
+## Installation
 
+```bash
+npm install voice-pipeline
 ```
-/lib/                           # The pipeline library
-  /types.ts                     # All type definitions
-  /backends/
-    /transformers/              # Transformers.js (browser + Node.js)
-    /native/                    # Native binaries (Node.js only)
-  /services/
-    function-service.ts         # Tool/function calling
-    text-normalizer.ts          # TTS text normalization
-  /voice-pipeline.ts            # Main orchestrator
 
-/examples/
-  /local-transformers/          # Browser-only (WebGPU)
-  /server-transformers/         # Server + client (Transformers.js)
-  /server-native/               # Server + client (native binaries)
+## How It Works
 
-/bin/                           # Native binaries (created by npm run setup)
-  whisper-cli                   # → symlink to Homebrew
-  llama-cli                     # → symlink to Homebrew
-  sherpa-onnx-offline-tts       # → downloaded binary
+`VoiceClient` is a unified browser SDK that handles three modes:
 
-/models/                        # Model files (created by npm run setup)
+1. **Fully Local** - Everything runs in browser (WebSpeech + Transformers.js)
+2. **Fully Remote** - Everything runs on server (client sends audio, receives audio)
+3. **Hybrid** - Mix local and remote (e.g., browser STT/TTS + server LLM)
+
+```typescript
+import { createVoiceClient } from 'voice-pipeline/client';
+
+// Component provided → runs locally
+// Component is null → server handles it
+// All local → no server needed
 ```
 
 ## Quick Start
 
-### Browser-Only Example
+### 1. Fully Local (No Server)
 
-All inference runs in the browser via WebGPU:
-
-```bash
-npm install
-npm run dev
-# Open http://localhost:5173/examples/local-transformers/
-```
-
-### Server + Client (Transformers.js)
-
-```bash
-# Terminal 1: Start server
-npm run dev:server-transformers
-
-# Terminal 2: Start client
-npm run dev
-# Open http://localhost:5173/examples/server-transformers/
-```
-
-### Server + Client (Native)
-
-Requires native binaries: whisper.cpp, llama.cpp, sherpa-onnx. See [Installing Native Backends](#installing-native-backends) below.
-
-```bash
-# Terminal 1: Start server
-npm run dev:server-native
-
-# Terminal 2: Start client
-npm run dev
-# Open http://localhost:5173/examples/server-native/
-```
-
-You can override default paths with environment variables:
-
-```bash
-export WHISPER_PATH=./bin/whisper-cli
-export WHISPER_MODEL=./models/whisper-large-v3-turbo-q8.bin
-export LLAMA_PATH=./bin/llama-cli
-export LLAMA_MODEL=./models/smollm2-1.7b-instruct-q4_k_m.gguf
-export SHERPA_ONNX_TTS_PATH=./bin/sherpa-onnx-offline-tts
-export SHERPA_ONNX_TTS_MODEL=./models/vits-piper-en_US-lessac-medium
-```
-
-## Using the Library
+Everything runs in the browser - no server required!
 
 ```typescript
-import {
-  VoicePipeline,
-  WhisperSTTPipeline,
-  SmolLMPipeline,
-  SpeechT5Pipeline,
-} from './lib';
+import { createVoiceClient, WebSpeechSTT, WebSpeechTTS } from 'voice-pipeline/client';
+import { SmolLM } from 'voice-pipeline';
 
-// Create pipelines
-const stt = new WhisperSTTPipeline({ model: 'Xenova/whisper-tiny.en', dtype: 'q8' });
-const llm = new SmolLMPipeline({ model: 'HuggingFaceTB/SmolLM2-360M-Instruct', dtype: 'q4', maxNewTokens: 140, temperature: 0.7 });
-const tts = new SpeechT5Pipeline({ model: 'Xenova/speecht5_tts', dtype: 'q8', speakerEmbeddings: '...' });
-
-// Create voice pipeline
-const pipeline = new VoicePipeline({
-  stt,
-  llm,
-  tts,
-  systemPrompt: 'You are a helpful assistant.',
+const client = createVoiceClient({
+  stt: new WebSpeechSTT({ language: 'en-US' }),
+  llm: new SmolLM({
+    model: 'HuggingFaceTB/SmolLM2-360M-Instruct',
+    dtype: 'q4',
+    maxNewTokens: 140,
+    device: 'webgpu',
+  }),
+  tts: new WebSpeechTTS({ voiceName: 'Samantha' }),
+  systemPrompt: 'You are a helpful voice assistant.',
+  // Note: no serverUrl needed!
 });
 
-// Initialize (downloads models)
+client.on('transcript', (text) => console.log('You:', text));
+client.on('responseChunk', (chunk) => process.stdout.write(chunk));
+
+await client.connect();
+
+button.onmousedown = () => client.startRecording();
+button.onmouseup = () => client.stopRecording();
+```
+
+### 2. Fully Remote (Server)
+
+Client sends audio, server handles everything:
+
+**Client:**
+```typescript
+import { createVoiceClient } from 'voice-pipeline/client';
+
+const client = createVoiceClient({
+  stt: null,   // server handles
+  llm: null,   // server handles
+  tts: null,   // server handles
+  serverUrl: 'ws://localhost:8080',
+});
+```
+
+**Server:**
+```typescript
+import { WebSocketServer } from 'ws';
+import { VoicePipeline, WhisperSTT, SmolLM, SpeechT5TTS } from 'voice-pipeline';
+import { createPipelineHandler } from 'voice-pipeline/server';
+
+const pipeline = new VoicePipeline({
+  stt: new WhisperSTT({ model: 'Xenova/whisper-small', dtype: 'q8' }),
+  llm: new SmolLM({ model: 'HuggingFaceTB/SmolLM2-1.7B-Instruct', dtype: 'q4' }),
+  tts: new SpeechT5TTS({ model: 'Xenova/speecht5_tts', dtype: 'fp16', speakerEmbeddings: '...' }),
+  systemPrompt: 'You are a helpful voice assistant.',
+});
+
 await pipeline.initialize();
 
-// Process audio
-await pipeline.processAudio(audioFloat32Array, {
-  onTranscript: (text) => console.log('User said:', text),
-  onResponseChunk: (chunk) => console.log('Response:', chunk),
-  onAudio: (audio, sampleRate) => playAudio(audio, sampleRate),
-  onComplete: () => console.log('Done'),
-  onError: (err) => console.error(err),
+const handler = createPipelineHandler(pipeline);
+const wss = new WebSocketServer({ port: 8080 });
+
+wss.on('connection', (ws) => {
+  const session = handler.createSession();
+  ws.on('message', async (data) => {
+    for await (const msg of session.handle(JSON.parse(data.toString()))) {
+      ws.send(JSON.stringify(msg));
+    }
+  });
+  ws.on('close', () => session.destroy());
 });
 ```
 
-## Native Backend (Server-Only)
+### 3. Hybrid (Browser STT/TTS + Server LLM)
 
-Native backends must be imported separately (they use Node.js APIs):
+Best of both worlds: instant browser speech APIs + powerful server models.
+
+**Client:**
+```typescript
+import { createVoiceClient, WebSpeechSTT, WebSpeechTTS } from 'voice-pipeline/client';
+
+const client = createVoiceClient({
+  stt: new WebSpeechSTT({ language: 'en-US' }),  // local
+  llm: null,                                      // server
+  tts: new WebSpeechTTS({ voiceName: 'Samantha' }), // local
+  serverUrl: 'ws://localhost:8080',
+});
+```
+
+**Server:**
+```typescript
+// Server automatically adapts based on client capabilities!
+// When client has local STT/TTS, server skips those steps.
+
+const pipeline = new VoicePipeline({
+  stt: new NativeWhisperSTT({ ... }),  // only used if client sends audio
+  llm: new NativeLlama({ ... }),        // always used
+  tts: new NativeSherpaOnnxTTS({ ... }), // only used if client needs audio
+  systemPrompt: '...',
+});
+```
+
+## API Reference
+
+### Exports
 
 ```typescript
-import { VoicePipeline } from './lib';
-import { NativeWhisperPipeline, NativeLlamaPipeline, NativeSherpaOnnxTTSPipeline } from './lib/backends/native';
+// Main library - pipeline + Transformers.js backends
+import { VoicePipeline, WhisperSTT, SmolLM, SpeechT5TTS } from 'voice-pipeline';
 
-const stt = new NativeWhisperPipeline({
-  binaryPath: './bin/whisper-cli',
-  modelPath: './models/whisper-large-v3-turbo-q8.bin',
-  language: 'en',
-});
+// Client SDK - unified browser interface
+import {
+  createVoiceClient,
+  VoiceClient,
+  WebSpeechSTT,
+  WebSpeechTTS
+} from 'voice-pipeline/client';
 
-const llm = new NativeLlamaPipeline({
-  binaryPath: './bin/llama-cli',
-  modelPath: './models/smollm2-1.7b-instruct-q4_k_m.gguf',
-  maxNewTokens: 140,
-  temperature: 0.7,
-});
+// Server utilities - WebSocket handler
+import { createPipelineHandler } from 'voice-pipeline/server';
 
-const tts = new NativeSherpaOnnxTTSPipeline({
-  binaryPath: './bin/sherpa-onnx-offline-tts',
-  modelDir: './models/vits-piper-en_US-lessac-medium',
-});
-
-const pipeline = new VoicePipeline({ stt, llm, tts, systemPrompt: '...' });
+// Native backends (server-only)
+import { NativeWhisperSTT, NativeLlama, NativeSherpaOnnxTTS } from 'voice-pipeline/native';
 ```
 
-### Installing Native Backends
+### VoiceClient
+
+```typescript
+const client = createVoiceClient({
+  // Components: provide locally, or null for server
+  stt: STTPipeline | WebSpeechSTT | null,
+  llm: LLMPipeline | null,
+  tts: TTSPipeline | WebSpeechTTS | null,
+
+  // Required if any component is null
+  serverUrl: 'ws://localhost:8080',
+
+  // Required if llm is provided locally
+  systemPrompt: 'You are a helpful assistant.',
+
+  // Optional
+  sampleRate: 16000,
+  autoReconnect: true,
+  reconnectDelay: 2000,
+});
+
+// Events
+client.on('status', (status) => {
+  // 'disconnected' | 'connecting' | 'initializing' | 'ready' | 'listening' | 'processing' | 'speaking'
+});
+client.on('transcript', (text) => { /* user's speech */ });
+client.on('responseChunk', (chunk) => { /* streaming LLM token */ });
+client.on('responseComplete', (fullText) => { /* complete response */ });
+client.on('progress', ({ status, file, progress }) => { /* model loading */ });
+client.on('error', (err) => { /* Error */ });
+
+// Methods
+await client.connect();          // Initialize local components + connect to server
+await client.startRecording();   // Start listening
+await client.stopRecording();    // Stop and process
+client.clearHistory();           // Reset conversation
+client.getMode();                // 'local' | 'remote' | 'hybrid'
+client.getLocalComponents();     // { stt: boolean, llm: boolean, tts: boolean }
+client.isReady();
+client.isRecording();
+client.disconnect();
+await client.dispose();
+```
+
+### VoicePipeline
+
+```typescript
+const pipeline = new VoicePipeline({
+  stt: STTPipeline | null,    // null if client handles STT
+  llm: LLMPipeline,           // required
+  tts: TTSPipeline | null,    // null if client handles TTS
+  systemPrompt: string,
+});
+
+await pipeline.initialize();
+
+// Process audio (requires STT)
+await pipeline.processAudio(audioFloat32Array, {
+  onTranscript: (text) => {},
+  onResponseChunk: (chunk) => {},
+  onAudio: (playable) => {},
+  onComplete: () => {},
+  onError: (err) => {},
+});
+
+// Process text (for when client does STT)
+await pipeline.processText('Hello', callbacks);
+
+pipeline.hasSTT();
+pipeline.hasTTS();
+pipeline.clearHistory();
+```
+
+## Examples
+
+See the [examples/](./examples/) directory for 7 interactive examples covering all configuration modes.
 
 ```bash
-# 1. Install STT and LLM via Homebrew
-brew install whisper-cpp llama.cpp
-
-# 2. Download models and setup binaries
-npm run setup
+cd examples
+npm install
+npm run dev:all   # Run all servers + vite
+# Open http://localhost:5173
 ```
 
-This sets up:
-- `bin/whisper-cli` → symlink to Homebrew whisper-cpp
-- `bin/llama-cli` → symlink to Homebrew llama.cpp
-- `bin/sherpa-onnx-offline-tts` → downloaded binary
-- `models/whisper-large-v3-turbo-q8.bin` → Whisper model
-- `models/smollm2-1.7b-instruct-q4_k_m.gguf` → LLM model
-- `models/vits-piper-en_US-lessac-medium/` → TTS model
+## Installing Native Backends
 
-## Models
+```bash
+# macOS
+brew install whisper-cpp llama.cpp
 
-### Transformers.js (Browser + Node.js)
+# Download models
+npx voice-pipeline setup
+```
 
-| Component | Model | Size |
-|-----------|-------|------|
-| STT | Xenova/whisper-tiny.en | ~150MB |
-| LLM | HuggingFaceTB/SmolLM2-360M-Instruct | ~400MB |
-| TTS | Xenova/speecht5_tts | ~200MB |
+## Project Structure
 
-### Native (Server-Only)
-
-| Component | Binary | Model |
-|-----------|--------|-------|
-| STT | whisper.cpp | whisper-large-v3-turbo-q8.bin |
-| LLM | llama.cpp | smollm2-1.7b-instruct.Q4_K_M.gguf |
-| TTS | sherpa-onnx | vits-piper-en_US-lessac-medium/ |
+```
+voice-pipeline/
+├── src/
+│   ├── backends/
+│   │   ├── transformers/     # WhisperSTT, SmolLM, SpeechT5TTS
+│   │   └── native/           # NativeWhisperSTT, NativeLlama, NativeSherpaOnnxTTS
+│   ├── client/
+│   │   ├── voice-client.ts   # Unified browser SDK
+│   │   ├── web-speech-stt.ts # Browser Speech Recognition
+│   │   └── web-speech-tts.ts # Browser Speech Synthesis
+│   ├── server/
+│   │   └── handler.ts        # WebSocket handler (capability-aware)
+│   └── voice-pipeline.ts     # Core orchestrator
+└── examples/                  # See examples/README.md
+```
 
 ## License
 
