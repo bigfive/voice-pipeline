@@ -7,30 +7,29 @@ Interactive examples demonstrating all the different configuration modes.
 ```bash
 npm install
 
-# Pick an example to run (starts both Vite + server):
-npm run dev                     # Vite only (for local examples that don't need a server)
-npm run dev:transformers        # transformers-transformers-transformers (port 3100)
-npm run dev:native              # native-native-native (port 3101)
-npm run dev:native-transformers # native-transformers-speech (port 3102)
-npm run dev:transformers-speech # transformers-transformers-speech (port 3103)
-npm run dev:speech-native       # speech-native-speech (port 3104)
-
-# Then open http://localhost:5173
+# Pick an example to run (opens browser automatically):
+npm run example1  # WebSpeech + Browser LLM (local, no server)
+npm run example2  # Browser Whisper + Browser LLM (local, no server)
+npm run example3  # Server Transformers.js (port 3100)
+npm run example4  # Server Native (port 3101)
+npm run example5  # WebSpeech + Server LLM (port 3104)
+npm run example6  # Server STT+LLM + Browser TTS (port 3103)
+npm run example7  # Native STT + Transformers.js LLM (port 3102)
 ```
 
 > **Note:** Each server example loads ML models into memory. Run one at a time to avoid exhausting RAM.
 
 ## Available Examples
 
-| Example | Type | Description |
-|---------|------|-------------|
-| `speech-browser-speech` | Local | WebSpeech STT → Browser LLM → WebSpeech TTS |
-| `browser-browser-speech` | Local | Browser Whisper → Browser LLM → WebSpeech TTS |
-| `transformers-transformers-transformers` | Remote | All Transformers.js on server |
-| `native-native-native` | Remote | All native binaries on server |
-| `speech-native-speech` | Hybrid | WebSpeech STT → Native LLM → WebSpeech TTS |
-| `transformers-transformers-speech` | Hybrid | Server Whisper → Server LLM → WebSpeech TTS |
-| `native-transformers-speech` | Mixed | Native whisper.cpp → TF.js LLM → WebSpeech TTS |
+| # | Folder | Type | Description |
+|---|--------|------|-------------|
+| 1 | `example-1-speech-browser-speech` | Local | WebSpeech STT → Browser LLM → WebSpeech TTS |
+| 2 | `example-2-browser-browser-speech` | Local | Browser Whisper → Browser LLM → WebSpeech TTS |
+| 3 | `example-3-transformers-transformers-transformers` | Remote | All Transformers.js on server |
+| 4 | `example-4-native-native-native` | Remote | All native binaries on server |
+| 5 | `example-5-speech-native-speech` | Hybrid | WebSpeech STT → Native LLM → WebSpeech TTS |
+| 6 | `example-6-transformers-transformers-speech` | Hybrid | Server Whisper → Server LLM → WebSpeech TTS |
+| 7 | `example-7-native-transformers-speech` | Mixed | Native whisper.cpp → TF.js LLM → WebSpeech TTS |
 
 ## All Possible Configurations
 
@@ -115,11 +114,11 @@ Naming convention: `{stt}-{llm}-{tts}` where each component is:
 
 | Example | Port |
 |---------|------|
-| `transformers-transformers-transformers` | 3100 |
-| `native-native-native` | 3101 |
-| `native-transformers-speech` | 3102 |
-| `transformers-transformers-speech` | 3103 |
-| `speech-native-speech` | 3104 |
+| example3 (`transformers-transformers-transformers`) | 3100 |
+| example4 (`native-native-native`) | 3101 |
+| example7 (`native-transformers-speech`) | 3102 |
+| example6 (`transformers-transformers-speech`) | 3103 |
+| example5 (`speech-native-speech`) | 3104 |
 
 ## Prerequisites
 
