@@ -19,6 +19,13 @@ Isomorphic STT → LLM → TTS pipeline library. Run voice assistants in the bro
   /local-transformers/          # Browser-only (WebGPU)
   /server-transformers/         # Server + client (Transformers.js)
   /server-native/               # Server + client (native binaries)
+
+/bin/                           # Native binaries (created by npm run setup)
+  whisper-cli                   # → symlink to Homebrew
+  llama-cli                     # → symlink to Homebrew
+  sherpa-onnx-offline-tts       # → downloaded binary
+
+/models/                        # Model files (created by npm run setup)
 ```
 
 ## Quick Start
@@ -46,7 +53,7 @@ npm run dev
 
 ### Server + Client (Native)
 
-Requires native binaries: whisper.cpp, llama.cpp, piper. See [Installing Native Backends](#installing-native-backends) below.
+Requires native binaries: whisper.cpp, llama.cpp, sherpa-onnx. See [Installing Native Backends](#installing-native-backends) below.
 
 ```bash
 # Terminal 1: Start server
@@ -60,12 +67,12 @@ npm run dev
 You can override default paths with environment variables:
 
 ```bash
-export WHISPER_PATH=/opt/homebrew/bin/whisper-cli
-export WHISPER_MODEL=./models/whisper-small.bin
-export LLAMA_PATH=/opt/homebrew/bin/llama-cli
+export WHISPER_PATH=./bin/whisper-cli
+export WHISPER_MODEL=./models/whisper-large-v3-turbo-q8.bin
+export LLAMA_PATH=./bin/llama-cli
 export LLAMA_MODEL=./models/smollm2-1.7b-instruct-q4_k_m.gguf
-export PIPER_PATH=/usr/local/bin/piper/piper
-export PIPER_MODEL=./models/en_US-lessac-medium.onnx
+export SHERPA_ONNX_TTS_PATH=./bin/sherpa-onnx-offline-tts
+export SHERPA_ONNX_TTS_MODEL=./models/vits-piper-en_US-lessac-medium
 ```
 
 ## Using the Library
@@ -110,24 +117,24 @@ Native backends must be imported separately (they use Node.js APIs):
 
 ```typescript
 import { VoicePipeline } from './lib';
-import { NativeWhisperPipeline, NativeLlamaPipeline, NativePiperPipeline } from './lib/backends/native';
+import { NativeWhisperPipeline, NativeLlamaPipeline, NativeSherpaOnnxTTSPipeline } from './lib/backends/native';
 
 const stt = new NativeWhisperPipeline({
-  binaryPath: '/usr/local/bin/whisper-cpp',
-  modelPath: './models/whisper-small.bin',
+  binaryPath: './bin/whisper-cli',
+  modelPath: './models/whisper-large-v3-turbo-q8.bin',
   language: 'en',
 });
 
 const llm = new NativeLlamaPipeline({
-  binaryPath: '/usr/local/bin/llama-cli',
-  modelPath: './models/smollm2-1.7b-instruct.Q4_K_M.gguf',
+  binaryPath: './bin/llama-cli',
+  modelPath: './models/smollm2-1.7b-instruct-q4_k_m.gguf',
   maxNewTokens: 140,
   temperature: 0.7,
 });
 
-const tts = new NativePiperPipeline({
-  binaryPath: '/usr/local/bin/piper',
-  modelPath: './models/en_US-lessac-medium.onnx',
+const tts = new NativeSherpaOnnxTTSPipeline({
+  binaryPath: './bin/sherpa-onnx-offline-tts',
+  modelDir: './models/vits-piper-en_US-lessac-medium',
 });
 
 const pipeline = new VoicePipeline({ stt, llm, tts, systemPrompt: '...' });
@@ -135,25 +142,21 @@ const pipeline = new VoicePipeline({ stt, llm, tts, systemPrompt: '...' });
 
 ### Installing Native Backends
 
-**Install binaries:**
-
 ```bash
-# whisper.cpp
-brew install whisper-cpp
+# 1. Install STT and LLM via Homebrew
+brew install whisper-cpp llama.cpp
 
-# llama.cpp
-brew install llama.cpp
-
-# piper
-# download and extract from https://github.com/rhasspy/piper/releases
-sudo mv piper /usr/local/bin/ # or ensure available in $PATH
+# 2. Download models and setup binaries
+npm run setup
 ```
 
-**Download models:**
-
-```bash
-npm run download-models
-```
+This sets up:
+- `bin/whisper-cli` → symlink to Homebrew whisper-cpp
+- `bin/llama-cli` → symlink to Homebrew llama.cpp
+- `bin/sherpa-onnx-offline-tts` → downloaded binary
+- `models/whisper-large-v3-turbo-q8.bin` → Whisper model
+- `models/smollm2-1.7b-instruct-q4_k_m.gguf` → LLM model
+- `models/vits-piper-en_US-lessac-medium/` → TTS model
 
 ## Models
 
@@ -169,9 +172,9 @@ npm run download-models
 
 | Component | Binary | Model |
 |-----------|--------|-------|
-| STT | whisper.cpp | whisper-small.bin |
+| STT | whisper.cpp | whisper-large-v3-turbo-q8.bin |
 | LLM | llama.cpp | smollm2-1.7b-instruct.Q4_K_M.gguf |
-| TTS | piper | en_US-lessac-medium.onnx |
+| TTS | sherpa-onnx | vits-piper-en_US-lessac-medium/ |
 
 ## License
 

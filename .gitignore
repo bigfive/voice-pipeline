@@ -16,4 +16,7 @@ dist/
 # Logs
 *.log
 
-models/
+models/*
+!models/.gitkeep
+bin/*
+!bin/.gitkeep
