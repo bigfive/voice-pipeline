@@ -64,14 +64,14 @@ export class VoicePipeline {
     this.llm = config.llm;
     this.tts = config.tts ?? null;
     this.systemPrompt = config.systemPrompt;
-    
+
     // Register tools
     if (config.tools) {
       for (const tool of config.tools) {
         this.registerTool(tool);
       }
     }
-    
+
     // Build initial system prompt (may include tool instructions for non-native backends)
     this.history = [{ role: 'system', content: this.buildSystemPrompt() }];
   }
@@ -86,7 +86,7 @@ export class VoicePipeline {
       description: tool.description,
       parameters: tool.parameters,
     });
-    
+
     // Update system prompt if we're using prompt-based tools
     if (!this.llm.supportsTools?.()) {
       this.history[0] = { role: 'system', content: this.buildSystemPrompt() };
@@ -99,7 +99,7 @@ export class VoicePipeline {
   unregisterTool(name: string): void {
     this.tools.delete(name);
     this.toolDefinitions = this.toolDefinitions.filter(t => t.name !== name);
-    
+
     // Update system prompt
     if (!this.llm.supportsTools?.()) {
       this.history[0] = { role: 'system', content: this.buildSystemPrompt() };
@@ -233,23 +233,23 @@ Only use tools when necessary. For simple questions, respond directly without to
 
   private async generateResponse(callbacks: VoicePipelineCallbacks): Promise<void> {
     const useNativeTools = (this.llm.supportsTools?.() ?? false) && this.toolDefinitions.length > 0;
-    
+
     // Tool execution loop - may iterate multiple times if LLM requests tools
     for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration++) {
       const result = await this.generateWithStreaming(callbacks, useNativeTools);
-      
+
       // Check for tool calls
       const toolCalls = useNativeTools
         ? result.toolCalls
         : this.parsePromptBasedToolCalls(result.content);
-      
+
       if (!toolCalls || toolCalls.length === 0) {
         // No tool calls - we're done
         // Add assistant response to history
         this.history.push({ role: 'assistant', content: result.content });
         return;
       }
-      
+
       // Execute tool calls
       const assistantMsg: AssistantMessage = {
         role: 'assistant',
@@ -257,10 +257,10 @@ Only use tools when necessary. For simple questions, respond directly without to
         toolCalls,
       };
       this.history.push(assistantMsg);
-      
+
       for (const toolCall of toolCalls) {
         callbacks.onToolCall?.(toolCall);
-        
+
         const tool = this.tools.get(toolCall.name);
         if (!tool) {
           // Unknown tool - add error result
@@ -273,7 +273,7 @@ Only use tools when necessary. For simple questions, respond directly without to
           callbacks.onToolResult?.(toolCall.id, { error: `Unknown tool: ${toolCall.name}` });
           continue;
         }
-        
+
         try {
           const toolResult = await tool.execute(toolCall.arguments);
           const resultMsg: ToolMessage = {
@@ -294,10 +294,10 @@ Only use tools when necessary. For simple questions, respond directly without to
           callbacks.onToolResult?.(toolCall.id, errorResult);
         }
       }
-      
+
       // Continue loop to get LLM's response after tool results
     }
-    
+
     // If we hit max iterations, add a warning
     console.warn('VoicePipeline: Max tool iterations reached');
   }
@@ -347,7 +347,7 @@ Only use tools when necessary. For simple questions, respond directly without to
       tools: useNativeTools ? this.toolDefinitions : undefined,
       onToken: (token) => {
         callbacks.onResponseChunk(token);
-        
+
         if (hasTTS) {
           sentenceBuffer += token;
           const match = sentenceBuffer.match(sentenceEnders);
@@ -392,13 +392,13 @@ Only use tools when necessary. For simple questions, respond directly without to
     // Look for JSON tool call format: {"tool_call": {"name": "...", "arguments": {...}}}
     const toolCallPattern = /\{"tool_call"\s*:\s*\{[^}]+\}\s*\}/g;
     const matches = content.match(toolCallPattern);
-    
+
     if (!matches) {
       return undefined;
     }
 
     const toolCalls: ToolCall[] = [];
-    
+
     for (const match of matches) {
       try {
         const parsed = JSON.parse(match);

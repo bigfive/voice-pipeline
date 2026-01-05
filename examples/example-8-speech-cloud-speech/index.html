@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Voice Pipeline - Cloud LLM (OpenAI/Ollama)</title>
+  <title>Voice Pipeline - Cloud LLM with Tools</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -73,6 +73,25 @@
       text-align: center;
       font-size: 0.85rem;
       color: #a1a1aa;
+    }
+    .message.tool-call, .message.tool-result {
+      background: rgba(34, 197, 94, 0.1);
+      border-left: 3px solid #22c55e;
+      font-size: 0.85rem;
+      padding: 8px 12px;
+    }
+    .message.tool-call .tool-icon, .message.tool-result .tool-icon {
+      margin-right: 6px;
+    }
+    .message code {
+      display: block;
+      margin-top: 6px;
+      padding: 6px 8px;
+      background: rgba(0,0,0,0.2);
+      border-radius: 4px;
+      font-family: 'SF Mono', Monaco, monospace;
+      font-size: 0.8rem;
+      word-break: break-all;
     }
     .message strong {
       display: block;
@@ -148,13 +167,13 @@
   <div class="container">
     <header>
       <h1>Voice Pipeline</h1>
-      <span class="mode-badge">☁️ Cloud LLM Mode</span>
+      <span class="mode-badge">☁️ Cloud LLM + Tools</span>
     </header>
 
     <div id="status">Connecting...</div>
 
     <div id="conversation">
-      <div class="message system">Press and hold the button to speak, or press Space.</div>
+      <div class="message system">Press and hold to speak. Try asking about time, weather, or rolling dice!</div>
     </div>
 
     <div class="controls">
@@ -163,11 +182,14 @@
     </div>
 
     <div class="info">
-      <strong>Cloud mode:</strong> Browser STT/TTS + Cloud LLM (OpenAI/Ollama)
+      <strong>Cloud mode with tools:</strong> Browser STT/TTS + Cloud LLM + Function Calling
       <div class="pipeline">
         <span class="local">WebSpeech STT</span> →
-        <span class="cloud">Cloud LLM</span> →
+        <span class="cloud">Cloud LLM 🔧</span> →
         <span class="local">WebSpeech TTS</span>
+      </div>
+      <div style="margin-top: 10px; color: #a1a1aa;">
+        Try: "What time is it?" • "Weather in Tokyo?" • "Roll 2d6"
       </div>
     </div>
   </div>

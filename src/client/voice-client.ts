@@ -103,6 +103,12 @@ export interface VoiceClientConfig {
   reconnectDelay?: number;
 }
 
+export interface ToolCallInfo {
+  id: string;
+  name: string;
+  arguments: Record<string, unknown>;
+}
+
 export interface VoiceClientEvents {
   /** Connection/initialization status changed */
   status: (status: VoiceClientStatus) => void;
@@ -112,6 +118,10 @@ export interface VoiceClientEvents {
   responseChunk: (text: string) => void;
   /** Full response complete */
   responseComplete: (fullText: string) => void;
+  /** Tool call started (function calling) */
+  toolCall: (toolCall: ToolCallInfo) => void;
+  /** Tool call result received */
+  toolResult: (toolCallId: string, result: unknown) => void;
   /** Error occurred */
   error: (error: Error) => void;
   /** Model loading progress (for local models) */
@@ -804,6 +814,18 @@ export class VoiceClient {
           const audio = base64ToFloat32(msg.data);
           this.player.enqueue(audio, msg.sampleRate);
         }
+        break;
+
+      case 'tool_call':
+        this.emit('toolCall', {
+          id: msg.toolCallId,
+          name: msg.name,
+          arguments: msg.arguments,
+        });
+        break;
+
+      case 'tool_result':
+        this.emit('toolResult', msg.toolCallId, msg.result);
         break;
 
       case 'complete':

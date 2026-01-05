@@ -170,13 +170,13 @@ export class CloudLLM implements LLMPipeline {
             if (delta?.tool_calls) {
               for (const tc of delta.tool_calls) {
                 const index = tc.index ?? 0;
-                
+
                 if (!toolCalls.has(index)) {
                   toolCalls.set(index, { id: '', name: '', arguments: '' });
                 }
-                
+
                 const existing = toolCalls.get(index)!;
-                
+
                 if (tc.id) {
                   existing.id = tc.id;
                 }
@@ -210,7 +210,7 @@ export class CloudLLM implements LLMPipeline {
         } catch {
           // Use empty args if parsing fails
         }
-        
+
         const toolCall: ToolCall = {
           id: tc.id,
           name: tc.name,
