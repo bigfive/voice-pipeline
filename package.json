@@ -7,7 +7,7 @@
     "dev:server-transformers": "tsx watch examples/server-transformers/server.ts",
     "dev:server-native": "tsx watch examples/server-native/server.ts",
     "build": "tsc && vite build",
-    "download-models": "./scripts/download-models.sh",
+    "setup": "./scripts/setup.sh",
     "test:native": "tsx scripts/test-native.ts"
   },
   "dependencies": {
