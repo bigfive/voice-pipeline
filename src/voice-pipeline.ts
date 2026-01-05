@@ -24,6 +24,13 @@ import { TextNormalizer } from './services/text-normalizer';
 /** Maximum number of tool call iterations to prevent infinite loops */
 const MAX_TOOL_ITERATIONS = 10;
 
+/** Default filler phrases while executing tools */
+const DEFAULT_TOOL_FILLER_PHRASES = [
+  'Let me check that for you.',
+  'One moment please.',
+  'Let me look that up.',
+];
+
 export interface VoicePipelineConfig {
   /** STT backend (optional if client does local STT) */
   stt?: STTPipeline | null;
@@ -35,6 +42,12 @@ export interface VoicePipelineConfig {
   systemPrompt: string;
   /** Registered tools for function calling */
   tools?: Tool[];
+  /** 
+   * Filler phrases to say while executing tools.
+   * Set to empty array to disable filler phrases.
+   * @default ["Let me check that for you.", "One moment please.", "Let me look that up."]
+   */
+  toolFillerPhrases?: string[];
 }
 
 export interface VoicePipelineCallbacks {
@@ -58,12 +71,15 @@ export class VoicePipeline {
   private history: Message[] = [];
   private tools: Map<string, Tool> = new Map();
   private toolDefinitions: ToolDefinition[] = [];
+  private toolFillerPhrases: string[];
+  private fillerPhraseIndex = 0;
 
   constructor(config: VoicePipelineConfig) {
     this.stt = config.stt ?? null;
     this.llm = config.llm;
     this.tts = config.tts ?? null;
     this.systemPrompt = config.systemPrompt;
+    this.toolFillerPhrases = config.toolFillerPhrases ?? DEFAULT_TOOL_FILLER_PHRASES;
 
     // Register tools
     if (config.tools) {
@@ -135,14 +151,16 @@ export class VoicePipeline {
 
     return `${this.systemPrompt}
 
-You have access to the following tools. When you need to use a tool, respond with ONLY a JSON object in this exact format (no other text):
+You have access to tools. When you need to use a tool, respond with ONLY this JSON (no other text before or after):
 {"tool_call": {"name": "tool_name", "arguments": {...}}}
 
 Available tools:
 ${toolsJson}
 
-After receiving a tool result, you may use another tool or provide your final response.
-Only use tools when necessary. For simple questions, respond directly without tools.`;
+IMPORTANT: 
+- If using a tool, respond ONLY with the JSON tool_call object, nothing else.
+- After you receive a tool result, provide your natural language response to the user.
+- Only use tools when necessary. For simple questions, respond directly.`;
   }
 
   async initialize(onProgress?: ProgressCallback): Promise<void> {
@@ -233,10 +251,21 @@ Only use tools when necessary. For simple questions, respond directly without to
 
   private async generateResponse(callbacks: VoicePipelineCallbacks): Promise<void> {
     const useNativeTools = (this.llm.supportsTools?.() ?? false) && this.toolDefinitions.length > 0;
+    const hasTools = this.toolDefinitions.length > 0;
 
     // Tool execution loop - may iterate multiple times if LLM requests tools
     for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration++) {
-      const result = await this.generateWithStreaming(callbacks, useNativeTools);
+      const isToolCheckTurn = hasTools && iteration === 0;
+      
+      // For prompt-based tools on first turn, don't stream (need to check for tool call JSON)
+      // For native tools, we can check tool_calls in result without streaming issues
+      const shouldStream = !isToolCheckTurn || useNativeTools;
+      
+      const result = await this.generateLLMResponse(
+        callbacks,
+        useNativeTools,
+        shouldStream && !useNativeTools // Only stream if not using native tools (native handles tool calls separately)
+      );
 
       // Check for tool calls
       const toolCalls = useNativeTools
@@ -244,20 +273,34 @@ Only use tools when necessary. For simple questions, respond directly without to
         : this.parsePromptBasedToolCalls(result.content);
 
       if (!toolCalls || toolCalls.length === 0) {
-        // No tool calls - we're done
+        // No tool calls - stream the response if we haven't already
+        if (!shouldStream || useNativeTools) {
+          // Stream the content now (we buffered it)
+          await this.streamResponse(result.content, callbacks);
+        }
+        
         // Add assistant response to history
         this.history.push({ role: 'assistant', content: result.content });
         return;
       }
 
-      // Execute tool calls
+      // Tool call detected - say filler phrase while we execute
+      if (this.toolFillerPhrases.length > 0) {
+        const fillerPhrase = this.toolFillerPhrases[this.fillerPhraseIndex % this.toolFillerPhrases.length];
+        this.fillerPhraseIndex++;
+        await this.streamResponse(fillerPhrase, callbacks);
+      }
+
+      // Add assistant message with tool calls to history (don't include raw JSON for prompt-based)
+      const assistantContent = useNativeTools ? result.content : '';
       const assistantMsg: AssistantMessage = {
         role: 'assistant',
-        content: result.content,
+        content: assistantContent,
         toolCalls,
       };
       this.history.push(assistantMsg);
 
+      // Execute tool calls
       for (const toolCall of toolCalls) {
         callbacks.onToolCall?.(toolCall);
 
@@ -296,6 +339,7 @@ Only use tools when necessary. For simple questions, respond directly without to
       }
 
       // Continue loop to get LLM's response after tool results
+      // Next iteration will stream the final response
     }
 
     // If we hit max iterations, add a warning
@@ -303,14 +347,60 @@ Only use tools when necessary. For simple questions, respond directly without to
   }
 
   /**
-   * Generate LLM response with streaming and optional TTS
+   * Stream a response to the client with optional TTS
    */
-  private async generateWithStreaming(
+  private async streamResponse(content: string, callbacks: VoicePipelineCallbacks): Promise<void> {
+    if (!content) return;
+
+    // Stream text chunks
+    callbacks.onResponseChunk(content);
+
+    // TTS if available
+    if (this.tts) {
+      const normalizedText = this.textNormalizer.normalize(content);
+      if (normalizedText) {
+        const playable = await this.tts.synthesize(normalizedText);
+        callbacks.onAudio(playable);
+      }
+    }
+  }
+
+  /**
+   * Generate LLM response, optionally with streaming
+   */
+  private async generateLLMResponse(
+    callbacks: VoicePipelineCallbacks,
+    useNativeTools: boolean,
+    shouldStream: boolean
+  ): Promise<{ content: string; toolCalls?: ToolCall[] }> {
+    // If streaming with TTS, use sentence-by-sentence streaming
+    if (shouldStream && this.tts) {
+      return this.generateWithStreamingTTS(callbacks, useNativeTools);
+    }
+
+    // If streaming without TTS, just stream tokens
+    if (shouldStream) {
+      const result = await this.llm.generate(this.history, {
+        tools: useNativeTools ? this.toolDefinitions : undefined,
+        onToken: (token) => callbacks.onResponseChunk(token),
+      });
+      return { content: result.content, toolCalls: result.toolCalls };
+    }
+
+    // No streaming - just get the result (used for tool call detection)
+    const result = await this.llm.generate(this.history, {
+      tools: useNativeTools ? this.toolDefinitions : undefined,
+    });
+    return { content: result.content, toolCalls: result.toolCalls };
+  }
+
+  /**
+   * Generate LLM response with streaming TTS (sentence by sentence)
+   */
+  private async generateWithStreamingTTS(
     callbacks: VoicePipelineCallbacks,
     useNativeTools: boolean
   ): Promise<{ content: string; toolCalls?: ToolCall[] }> {
-    // Prepare TTS streaming state
-    const hasTTS = !!this.tts;
     let sentenceBuffer = '';
     const sentenceEnders = /[.!?]/;
     const playableQueue = new Map<number, AudioPlayable>();
@@ -342,31 +432,25 @@ Only use tools when necessary. For simple questions, respond directly without to
       ttsPromises.push(promise);
     };
 
-    // Generate with the LLM
     const result = await this.llm.generate(this.history, {
       tools: useNativeTools ? this.toolDefinitions : undefined,
       onToken: (token) => {
         callbacks.onResponseChunk(token);
-
-        if (hasTTS) {
-          sentenceBuffer += token;
-          const match = sentenceBuffer.match(sentenceEnders);
-          if (match && match.index !== undefined) {
-            const sentence = sentenceBuffer.slice(0, match.index + 1).trim();
-            sentenceBuffer = sentenceBuffer.slice(match.index + 1);
-            if (sentence) {
-              queueTTS(sentence, nextSentenceIndex++);
-            }
+        sentenceBuffer += token;
+        
+        const match = sentenceBuffer.match(sentenceEnders);
+        if (match && match.index !== undefined) {
+          const sentence = sentenceBuffer.slice(0, match.index + 1).trim();
+          sentenceBuffer = sentenceBuffer.slice(match.index + 1);
+          if (sentence) {
+            queueTTS(sentence, nextSentenceIndex++);
           }
         }
       },
-      onToolCall: (toolCall) => {
-        callbacks.onToolCall?.(toolCall);
-      },
     });
 
-    // Handle remaining text for TTS
-    if (hasTTS && sentenceBuffer.trim()) {
+    // Handle remaining text
+    if (sentenceBuffer.trim()) {
       queueTTS(sentenceBuffer.trim(), nextSentenceIndex++);
     }
 
@@ -375,10 +459,7 @@ Only use tools when necessary. For simple questions, respond directly without to
       await Promise.all(ttsPromises);
     }
 
-    return {
-      content: result.content,
-      toolCalls: result.toolCalls,
-    };
+    return { content: result.content, toolCalls: result.toolCalls };
   }
 
   /**
@@ -389,32 +470,45 @@ Only use tools when necessary. For simple questions, respond directly without to
       return undefined;
     }
 
-    // Look for JSON tool call format: {"tool_call": {"name": "...", "arguments": {...}}}
-    const toolCallPattern = /\{"tool_call"\s*:\s*\{[^}]+\}\s*\}/g;
-    const matches = content.match(toolCallPattern);
-
-    if (!matches) {
+    // Check if the content looks like a tool call (starts with { and contains "tool_call")
+    const trimmed = content.trim();
+    if (!trimmed.startsWith('{') || !trimmed.includes('"tool_call"')) {
       return undefined;
     }
 
-    const toolCalls: ToolCall[] = [];
+    // Try to parse the entire content as a tool call JSON
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (parsed.tool_call?.name) {
+        return [{
+          id: `prompt-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+          name: parsed.tool_call.name,
+          arguments: parsed.tool_call.arguments || {},
+        }];
+      }
+    } catch {
+      // Not valid JSON, try to extract tool call with regex
+    }
 
-    for (const match of matches) {
+    // Fallback: try to extract JSON object from content
+    // This handles cases where there's extra text around the JSON
+    const jsonMatch = content.match(/\{[\s\S]*"tool_call"[\s\S]*\}/);
+    if (jsonMatch) {
       try {
-        const parsed = JSON.parse(match);
+        const parsed = JSON.parse(jsonMatch[0]);
         if (parsed.tool_call?.name) {
-          toolCalls.push({
+          return [{
             id: `prompt-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
             name: parsed.tool_call.name,
             arguments: parsed.tool_call.arguments || {},
-          });
+          }];
         }
       } catch {
         // Skip malformed JSON
       }
     }
 
-    return toolCalls.length > 0 ? toolCalls : undefined;
+    return undefined;
   }
 
   clearHistory(): void {

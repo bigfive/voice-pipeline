@@ -35,7 +35,7 @@ const CONFIG = {
 
 You have tools available to help answer questions:
 - Use get_current_time when asked about the time
-- Use get_weather when asked about weather in a location  
+- Use get_weather when asked about weather in a location
 - Use roll_dice when asked to roll dice for games`,
 };
 
@@ -76,7 +76,7 @@ const tools: Tool[] = [
       const conditions = ['sunny', 'partly cloudy', 'cloudy', 'rainy'];
       const condition = conditions[Math.floor(Math.random() * conditions.length)];
       const temp = Math.floor(Math.random() * 30) + 50; // 50-80°F
-      
+
       return {
         location,
         temperature: `${temp}°F`,
@@ -101,23 +101,23 @@ const tools: Tool[] = [
     execute: async (args) => {
       const notation = (args.notation as string).toLowerCase();
       const match = notation.match(/^(\d+)d(\d+)$/);
-      
+
       if (!match) {
         return { error: 'Invalid dice notation. Use format like "2d6" or "1d20"' };
       }
-      
+
       const numDice = parseInt(match[1], 10);
       const numSides = parseInt(match[2], 10);
-      
+
       if (numDice > 20 || numSides > 100) {
         return { error: 'Too many dice or sides' };
       }
-      
+
       const rolls: number[] = [];
       for (let i = 0; i < numDice; i++) {
         rolls.push(Math.floor(Math.random() * numSides) + 1);
       }
-      
+
       return {
         notation,
         rolls,
@@ -175,7 +175,7 @@ async function main(): Promise<void> {
           } else if (response.type === 'tool_result') {
             console.log(`  ✓ Tool result: ${JSON.stringify(response.result)}`);
           }
-          
+
           ws.send(JSON.stringify(response));
         }
       } catch (err) {
