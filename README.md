@@ -9,6 +9,8 @@ Building a voice assistant involves three steps: **Speech-to-Text** (STT), **Lan
 1. **Fully cloud-based** — send audio to APIs, get audio back. Simple, but adds latency, costs money per request, and requires internet.
 2. **Fully local** — run everything on-device. Private and offline, but heavyweight and limited to smaller models.
 
+Yes, multimodal models exist that handle audio-in/audio-out natively — but they're expensive, not all models support it, and you lose control over the voice and transcription quality. For most apps, a modular pipeline is more practical: pick the best STT, pair it with any LLM (local or cloud), and choose a TTS voice that fits your brand.
+
 **Voice Pipeline takes a different approach**: you choose where each component runs. Mix browser-native speech APIs with a server-side LLM. Run a small TTS model locally but transcribe on the server. Or go fully local when you need offline support. The architecture adapts to your requirements rather than the other way around.
 
 ## How It Works
@@ -25,13 +27,14 @@ User speaks → [STT] → [LLM] → [TTS] → User hears response
 
 You configure which components run locally and which run on a server. The client handles all the coordination automatically — sending audio or text over WebSocket when needed, managing the pipeline flow, and providing events for transcripts and streaming responses.
 
-**Three modes emerge naturally:**
+**Four modes emerge naturally:**
 
 | Mode | When to Use | What Happens |
 |------|-------------|--------------|
 | **Local** | Offline apps, privacy-critical, demos | Everything runs in browser. No server needed. |
-| **Remote** | Production apps with powerful models | Client sends audio, server handles all processing, sends back audio. |
-| **Hybrid** | Low-latency with powerful LLMs | Browser handles instant STT/TTS, server runs the big model. |
+| **Remote** | Full control over the stack | Client sends audio, server runs STT/LLM/TTS locally, sends back audio. |
+| **Hybrid** | Low-latency with powerful LLMs | Browser handles instant STT/TTS, server runs the model. |
+| **Cloud** | Production apps, best-in-class LLMs | Server handles STT/TTS, proxies to OpenAI/Ollama/vLLM for intelligence. |
 
 The same push-to-talk interface works regardless of mode:
 
@@ -156,6 +159,43 @@ const pipeline = new VoicePipeline({
 });
 ```
 
+### 4. Cloud LLM (OpenAI, Ollama, vLLM)
+
+Server handles all audio processing, proxies to cloud for intelligence. Best of both worlds: consistent speech quality + best-in-class LLMs.
+
+**Client:**
+```typescript
+import { createVoiceClient } from 'voice-pipeline/client';
+
+const client = createVoiceClient({
+  stt: null,   // server handles
+  llm: null,   // server proxies to cloud
+  tts: null,   // server handles
+  serverUrl: 'ws://localhost:3100',
+});
+```
+
+**Server:**
+```typescript
+import { VoicePipeline } from 'voice-pipeline';
+import { NativeWhisperSTT, NativeSherpaOnnxTTS } from 'voice-pipeline/native';
+import { CloudLLM } from 'voice-pipeline/cloud';
+
+const pipeline = new VoicePipeline({
+  stt: new NativeWhisperSTT({ model: 'base.en' }),
+  llm: new CloudLLM({
+    baseUrl: 'https://api.openai.com/v1',
+    apiKey: process.env.OPENAI_API_KEY,
+    model: 'gpt-4o',
+    maxTokens: 256,
+  }),
+  tts: new NativeSherpaOnnxTTS({ model: 'en_US-amy-medium' }),
+  systemPrompt: 'You are a helpful voice assistant.',
+});
+```
+
+Works with **OpenAI**, **Ollama** (`http://localhost:11434/v1`), **vLLM**, **LMStudio**, and any OpenAI-compatible endpoint.
+
 ## API Reference
 
 ### Exports
@@ -183,6 +223,9 @@ import {
   defaultPaths,
   getCacheDir
 } from 'voice-pipeline/native';
+
+// Cloud backends (server-only)
+import { CloudLLM } from 'voice-pipeline/cloud';
 ```
 
 ### VoiceClient
@@ -260,7 +303,7 @@ pipeline.clearHistory();
 
 ## Examples
 
-See the [examples/](./examples/) directory for 7 interactive examples covering all configuration modes.
+See the [examples/](./examples/) directory for 9 interactive examples covering all configuration modes, including cloud LLM integration.
 
 ```bash
 cd examples
@@ -278,6 +321,20 @@ brew install whisper-cpp llama.cpp
 npx voice-pipeline setup
 ```
 
+## Cloud LLM Setup
+
+For OpenAI:
+```bash
+export OPENAI_API_KEY=sk-your-key-here
+```
+
+For Ollama (runs locally, no API key needed):
+```bash
+brew install ollama
+ollama pull llama3.2
+# Use baseUrl: 'http://localhost:11434/v1'
+```
+
 ## Project Structure
 
 ```
@@ -285,7 +342,8 @@ voice-pipeline/
 ├── src/
 │   ├── backends/
 │   │   ├── transformers/     # WhisperSTT, SmolLM, SpeechT5TTS
-│   │   └── native/           # NativeWhisperSTT, NativeLlama, NativeSherpaOnnxTTS
+│   │   ├── native/           # NativeWhisperSTT, NativeLlama, NativeSherpaOnnxTTS
+│   │   └── cloud/            # CloudLLM (OpenAI, Ollama, vLLM)
 │   ├── client/
 │   │   ├── voice-client.ts   # Unified browser SDK
 │   │   ├── web-speech-stt.ts # Browser Speech Recognition
