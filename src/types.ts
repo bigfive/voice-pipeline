@@ -116,31 +116,6 @@ export interface TTSPipeline {
   isReady(): boolean;
 }
 
-// ============ Tool/Function Types ============
-
-export interface ToolParameter {
-  type: 'string' | 'number' | 'boolean';
-  description: string;
-  required?: boolean;
-}
-
-export interface ToolDefinition {
-  name: string;
-  description: string;
-  parameters?: Record<string, ToolParameter>;
-  handler: (args: Record<string, unknown>) => string | Promise<string>;
-}
-
-export interface FunctionCall {
-  name: string;
-  arguments: Record<string, unknown>;
-}
-
-export interface FunctionResult {
-  name: string;
-  result: string;
-}
-
 // ============ Backend Config Types ============
 
 export interface TransformersSTTConfig {

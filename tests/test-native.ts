@@ -4,7 +4,7 @@
  */
 
 import { existsSync, writeFileSync, unlinkSync } from 'fs';
-import { NativeWhisperPipeline, NativeLlamaPipeline, NativeSherpaOnnxTTSPipeline } from '../lib/backends/native';
+import { NativeWhisperSTT, NativeLlama, NativeSherpaOnnxTTS } from '../lib/backends/native';
 
 // ============ Configuration ============
 
@@ -101,7 +101,7 @@ async function testSTT(): Promise<boolean> {
     pass('Model exists');
 
     // Initialize pipeline
-    const stt = new NativeWhisperPipeline(CONFIG.stt);
+    const stt = new NativeWhisperSTT(CONFIG.stt);
     await stt.initialize();
     pass('Pipeline initialized');
 
@@ -138,7 +138,7 @@ async function testLLM(): Promise<boolean> {
     pass('Model exists');
 
     // Initialize pipeline
-    const llm = new NativeLlamaPipeline(CONFIG.llm);
+    const llm = new NativeLlama(CONFIG.llm);
     await llm.initialize();
     pass('Pipeline initialized');
 
@@ -193,7 +193,7 @@ async function testTTS(): Promise<boolean> {
     pass('Model directory exists');
 
     // Initialize pipeline
-    const tts = new NativeSherpaOnnxTTSPipeline(CONFIG.tts);
+    const tts = new NativeSherpaOnnxTTS(CONFIG.tts);
     await tts.initialize();
     pass('Pipeline initialized');
 
@@ -238,9 +238,9 @@ async function testEndToEnd(): Promise<boolean> {
   try {
     const { VoicePipeline } = await import('../lib');
 
-    const stt = new NativeWhisperPipeline(CONFIG.stt);
-    const llm = new NativeLlamaPipeline(CONFIG.llm);
-    const tts = new NativeSherpaOnnxTTSPipeline(CONFIG.tts);
+    const stt = new NativeWhisperSTT(CONFIG.stt);
+    const llm = new NativeLlama(CONFIG.llm);
+    const tts = new NativeSherpaOnnxTTS(CONFIG.tts);
 
     const pipeline = new VoicePipeline({
       stt,

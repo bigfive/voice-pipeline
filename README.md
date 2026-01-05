@@ -48,7 +48,7 @@ const client = createVoiceClient({
 });
 
 client.on('transcript', (text) => console.log('You:', text));
-client.on('responseChunk', (chunk) => process.stdout.write(chunk));
+client.on('responseChunk', (chunk) => console.log('Assistant:', chunk));
 
 await client.connect();
 
@@ -119,6 +119,9 @@ const client = createVoiceClient({
 
 **Server:**
 ```typescript
+import { VoicePipeline } from 'voice-pipeline';
+import { NativeLlama } from 'voice-pipeline/native';
+
 // Server only needs LLM - client handles STT/TTS
 const pipeline = new VoicePipeline({
   stt: null,                    // client sends text
@@ -148,7 +151,13 @@ import {
 import { createPipelineHandler } from 'voice-pipeline/server';
 
 // Native backends (server-only)
-import { NativeWhisperSTT, NativeLlama, NativeSherpaOnnxTTS } from 'voice-pipeline/native';
+import {
+  NativeWhisperSTT,
+  NativeLlama,
+  NativeSherpaOnnxTTS,
+  defaultPaths,
+  getCacheDir
+} from 'voice-pipeline/native';
 ```
 
 ### VoiceClient
@@ -231,8 +240,7 @@ See the [examples/](./examples/) directory for 7 interactive examples covering a
 ```bash
 cd examples
 npm install
-npm run dev:all   # Run all servers + vite
-# Open http://localhost:5173
+npm run example1  # Or example2, example3, etc.
 ```
 
 ## Installing Native Backends
@@ -268,6 +276,9 @@ voice-pipeline/
 The server supports automatic capability detection for scenarios where you need one server to handle multiple client types (e.g., during rolling deployments).
 
 ```typescript
+import { VoicePipeline } from 'voice-pipeline';
+import { NativeWhisperSTT, NativeLlama, NativeSherpaOnnxTTS } from 'voice-pipeline/native';
+
 // Server with full pipeline - adapts to client capabilities
 const pipeline = new VoicePipeline({
   stt: new NativeWhisperSTT({ ... }),  // used if client sends audio

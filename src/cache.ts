@@ -31,7 +31,7 @@ export function getBinDir(): string {
 
 /**
  * Default paths for native backends.
- * Use these when configuring NativeWhisperPipeline, NativeLlamaPipeline, etc.
+ * Use these when configuring NativeWhisperSTT, NativeLlama, NativeSherpaOnnxTTS.
  */
 export const defaultPaths = {
   get whisper() {
