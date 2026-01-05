@@ -11,6 +11,8 @@
     "example5": "concurrently -k -n vite,server -c blue,magenta \"vite --open /example-5-speech-native-speech/\" \"tsx watch example-5-speech-native-speech/server.ts\"",
     "example6": "concurrently -k -n vite,server -c blue,cyan \"vite --open /example-6-transformers-transformers-speech/\" \"tsx watch example-6-transformers-transformers-speech/server.ts\"",
     "example7": "concurrently -k -n vite,server -c blue,red \"vite --open /example-7-native-transformers-speech/\" \"tsx watch example-7-native-transformers-speech/server.ts\"",
+    "example8": "concurrently -k -n vite,server -c blue,#a78bfa \"vite --open /example-8-speech-cloud-speech/\" \"tsx watch example-8-speech-cloud-speech/server.ts\"",
+    "example9": "concurrently -k -n vite,server -c blue,#f97316 \"vite --open /example-9-native-cloud-native/\" \"tsx watch example-9-native-cloud-native/server.ts\"",
     "build": "tsc && vite build",
     "preview": "vite preview"
   },

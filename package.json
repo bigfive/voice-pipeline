@@ -15,6 +15,10 @@
       "import": "./dist/backends/native/index.js",
       "types": "./dist/backends/native/index.d.ts"
     },
+    "./cloud": {
+      "import": "./dist/backends/cloud/index.js",
+      "types": "./dist/backends/cloud/index.d.ts"
+    },
     "./client": {
       "import": "./dist/client/index.js",
       "types": "./dist/client/index.d.ts"

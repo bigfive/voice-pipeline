@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Voice Pipeline - Native STT/TTS + Cloud LLM</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #0c0a09 0%, #1c1917 100%);
+      min-height: 100vh;
+      color: #e7e5e4;
+      padding: 20px;
+    }
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+    }
+    header {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    h1 {
+      font-size: 1.5rem;
+      margin-bottom: 8px;
+      background: linear-gradient(135deg, #f97316, #eab308);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .mode-badge {
+      display: inline-block;
+      background: rgba(249, 115, 22, 0.2);
+      color: #f97316;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+    #status {
+      text-align: center;
+      padding: 12px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 8px;
+      margin-bottom: 20px;
+      font-size: 0.9rem;
+    }
+    #conversation {
+      background: rgba(255,255,255,0.03);
+      border-radius: 12px;
+      padding: 16px;
+      min-height: 300px;
+      max-height: 400px;
+      overflow-y: auto;
+      margin-bottom: 20px;
+    }
+    .message {
+      margin-bottom: 12px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      line-height: 1.5;
+    }
+    .message.user {
+      background: rgba(249, 115, 22, 0.15);
+      border-left: 3px solid #f97316;
+    }
+    .message.assistant {
+      background: rgba(234, 179, 8, 0.15);
+      border-left: 3px solid #eab308;
+    }
+    .message.system {
+      background: rgba(255,255,255,0.05);
+      text-align: center;
+      font-size: 0.85rem;
+      color: #a8a29e;
+    }
+    .message strong {
+      display: block;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+      opacity: 0.7;
+    }
+    .controls {
+      display: flex;
+      gap: 12px;
+    }
+    button {
+      flex: 1;
+      padding: 16px;
+      border: none;
+      border-radius: 12px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    #recordBtn {
+      background: linear-gradient(135deg, #f97316, #ea580c);
+      color: white;
+    }
+    #recordBtn:hover:not(:disabled) {
+      transform: scale(1.02);
+    }
+    #recordBtn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    #recordBtn.recording {
+      background: linear-gradient(135deg, #ef4444, #dc2626);
+      animation: pulse 1s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+      50% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+    }
+    #clearBtn {
+      background: rgba(255,255,255,0.1);
+      color: #a8a29e;
+      flex: 0.3;
+    }
+    #clearBtn:hover {
+      background: rgba(255,255,255,0.15);
+    }
+    .info {
+      margin-top: 20px;
+      padding: 16px;
+      background: rgba(249, 115, 22, 0.1);
+      border-radius: 8px;
+      font-size: 0.85rem;
+      line-height: 1.6;
+    }
+    .info strong { color: #f97316; }
+    .pipeline {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 8px;
+      font-family: monospace;
+    }
+    .native { color: #f97316; }
+    .cloud { color: #eab308; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Voice Pipeline</h1>
+      <span class="mode-badge">🔧 Native + Cloud Mode</span>
+    </header>
+
+    <div id="status">Connecting...</div>
+
+    <div id="conversation">
+      <div class="message system">Connecting to server...</div>
+    </div>
+
+    <div class="controls">
+      <button id="recordBtn" disabled>🎤 Hold to Speak</button>
+      <button id="clearBtn">Clear</button>
+    </div>
+
+    <div class="info">
+      <strong>Native + Cloud mode:</strong> whisper.cpp STT + Cloud LLM + sherpa-onnx TTS
+      <div class="pipeline">
+        <span class="native">whisper.cpp</span> →
+        <span class="cloud">Cloud LLM</span> →
+        <span class="native">sherpa-onnx</span>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="./client.ts"></script>
+</body>
+</html>
+

@@ -166,3 +166,11 @@ export interface SherpaOnnxTTSConfig {
   speedScale?: number;
 }
 
+export interface CloudLLMConfig {
+  baseUrl: string;           // API base URL (e.g., "https://api.openai.com/v1" or "http://localhost:11434/v1")
+  apiKey?: string;           // API key (optional for local servers like Ollama)
+  model: string;             // Model name (e.g., "gpt-4o", "llama3.2")
+  maxTokens?: number;        // Max tokens for completion
+  temperature?: number;      // Sampling temperature
+}
+
