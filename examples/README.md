@@ -46,8 +46,8 @@ Naming convention: `{stt}-{llm}-{tts}` where each component is:
 
 | Config | STT | LLM | TTS | Status |
 |--------|-----|-----|-----|--------|
-| `speech-browser-speech` | WebSpeech | Browser Transformers | WebSpeech | ✅ Example |
-| `browser-browser-speech` | Browser Whisper | Browser Transformers | WebSpeech | ✅ Example |
+| `speech-browser-speech` | WebSpeech | Browser Transformers | WebSpeech | ✅ Example 1 |
+| `browser-browser-speech` | Browser Whisper | Browser Transformers | WebSpeech | ✅ Example 2 |
 | `speech-browser-browser` | WebSpeech | Browser Transformers | Browser TTS | ⚠️ No browser TTS model |
 | `browser-browser-browser` | Browser Whisper | Browser Transformers | Browser TTS | ⚠️ No browser TTS model |
 
@@ -55,8 +55,8 @@ Naming convention: `{stt}-{llm}-{tts}` where each component is:
 
 | Config | STT | LLM | TTS | Status |
 |--------|-----|-----|-----|--------|
-| `native-native-native` | whisper.cpp | llama.cpp | sherpa-onnx | ✅ Example |
-| `transformers-transformers-transformers` | Server Whisper | Server LLM | SpeechT5 | ✅ Example |
+| `native-native-native` | whisper.cpp | llama.cpp | sherpa-onnx | ✅ Example 4 |
+| `transformers-transformers-transformers` | Server Whisper | Server LLM | SpeechT5 | ✅ Example 3 |
 | `native-native-transformers` | whisper.cpp | llama.cpp | SpeechT5 | ✅ Possible |
 | `native-transformers-native` | whisper.cpp | Server LLM | sherpa-onnx | ✅ Possible |
 | `native-transformers-transformers` | whisper.cpp | Server LLM | SpeechT5 | ✅ Possible |
@@ -68,7 +68,7 @@ Naming convention: `{stt}-{llm}-{tts}` where each component is:
 
 | Config | STT | LLM | TTS | Status |
 |--------|-----|-----|-----|--------|
-| `speech-native-speech` | WebSpeech | llama.cpp | WebSpeech | ✅ Example |
+| `speech-native-speech` | WebSpeech | llama.cpp | WebSpeech | ✅ Example 5 |
 | `speech-transformers-speech` | WebSpeech | Server LLM | WebSpeech | ✅ Possible |
 | `browser-native-speech` | Browser Whisper | llama.cpp | WebSpeech | ✅ Possible |
 | `browser-transformers-speech` | Browser Whisper | Server LLM | WebSpeech | ✅ Possible |
@@ -95,9 +95,9 @@ Naming convention: `{stt}-{llm}-{tts}` where each component is:
 | Config | STT | LLM | TTS | Status |
 |--------|-----|-----|-----|--------|
 | `native-native-speech` | whisper.cpp | llama.cpp | WebSpeech | ✅ Possible |
-| `native-transformers-speech` | whisper.cpp | Server LLM | WebSpeech | ✅ Example |
+| `native-transformers-speech` | whisper.cpp | Server LLM | WebSpeech | ✅ Example 7 |
 | `transformers-native-speech` | Server Whisper | llama.cpp | WebSpeech | ✅ Possible |
-| `transformers-transformers-speech` | Server Whisper | Server LLM | WebSpeech | ✅ Example |
+| `transformers-transformers-speech` | Server Whisper | Server LLM | WebSpeech | ✅ Example 6 |
 | `native-native-browser` | whisper.cpp | llama.cpp | Browser TTS | ⚠️ No browser TTS model |
 | `native-transformers-browser` | whisper.cpp | Server LLM | Browser TTS | ⚠️ No browser TTS model |
 | `transformers-native-browser` | Server Whisper | llama.cpp | Browser TTS | ⚠️ No browser TTS model |
