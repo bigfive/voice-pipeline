@@ -1,9 +1,12 @@
 /**
  * Llama LLM Pipeline (Native - llama.cpp)
  * Server-only - requires native binary
+ *
+ * Uses llama-simple for clean single-shot completions.
+ * The binaryPath should point to llama-simple (not llama-cli).
  */
 
-import { execSync } from 'child_process';
+import { spawn } from 'child_process';
 import { existsSync } from 'fs';
 import type { LLMPipeline, NativeLLMConfig, ProgressCallback, Message } from '../../types';
 
@@ -35,55 +38,76 @@ export class NativeLlamaPipeline implements LLMPipeline {
     }
 
     const prompt = this.formatChatPrompt(messages);
-    const escapedPrompt = prompt.replace(/'/g, "'\\''");
 
-    const gpuFlag = this.config.gpuLayers ? `-ngl ${this.config.gpuLayers}` : '';
+    // Use llama-simple for clean single-shot completions
+    // All debug output goes to stderr, only the completion goes to stdout
+    // llama-simple syntax: llama-simple -m model.gguf [-n n_predict] [-ngl n_gpu_layers] [prompt]
+    const args = [
+      '-m', this.config.modelPath,
+      '-n', String(this.config.maxNewTokens),
+    ];
 
-    const result = execSync(
-      `"${this.config.binaryPath}" ` +
-      `-m "${this.config.modelPath}" ` +
-      `-p '${escapedPrompt}' ` +
-      `-n ${this.config.maxNewTokens} ` +
-      `--temp ${this.config.temperature} ` +
-      `${gpuFlag} ` +
-      `--no-display-prompt ` +
-      `--single-turn ` +      // Exit after one response
-      `--log-disable`,        // Disable logging
-      { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'], maxBuffer: 10 * 1024 * 1024 }
-    );
-
-    // Parse response - extract text after the last ">" prompt marker and before stats
-    let response = result.trim();
-
-    // Find the actual response (after the prompt markers, before the stats)
-    const lines = response.split('\n');
-    const responseLines: string[] = [];
-    let inResponse = false;
-
-    for (const line of lines) {
-      // Skip loading/banner lines
-      if (line.includes('Loading model') || line.includes('▄') || line.includes('██') ||
-          line.includes('build') || line.includes('modalities') || line.includes('available commands') ||
-          line.includes('/exit') || line.includes('/regen') || line.includes('/clear') || line.includes('/read') ||
-          line.startsWith('>') || line.includes('<|im_start|>') || line.includes('<|im_end|>')) {
-        continue;
-      }
-      // Skip stats line
-      if (line.includes('Prompt:') && line.includes('t/s')) continue;
-      if (line.includes('Exiting...')) continue;
-      // Collect actual response
-      if (line.trim()) {
-        responseLines.push(line.trim());
-      }
+    if (this.config.gpuLayers) {
+      args.push('-ngl', String(this.config.gpuLayers));
     }
 
-    response = responseLines.join(' ').trim();
+    // Prompt must be last (positional argument)
+    args.push(prompt);
 
-    for (const char of response) {
-      onToken(char);
-    }
+    return new Promise((resolve, reject) => {
+      const proc = spawn(this.config.binaryPath, args, {
+        stdio: ['pipe', 'pipe', 'pipe'],
+      });
 
-    return response;
+      let fullOutput = '';
+      const promptLength = prompt.length;
+
+      proc.stdout.on('data', (data: Buffer) => {
+        const chunk = data.toString();
+        fullOutput += chunk;
+
+        // llama-simple outputs: {prompt}{completion}
+        // We only want to stream the completion part (after the prompt)
+        if (fullOutput.length > promptLength) {
+          // Get just the new completion text
+          const completionSoFar = fullOutput.slice(promptLength);
+          const prevCompletion = (fullOutput.length - chunk.length > promptLength)
+            ? fullOutput.slice(promptLength, -chunk.length)
+            : '';
+          const newText = completionSoFar.slice(prevCompletion.length);
+
+          // Stream new characters, filtering out special tokens
+          for (const char of newText) {
+            onToken(char);
+          }
+        }
+      });
+
+      proc.stderr.on('data', () => {
+        // Ignore stderr (Metal init messages, timing info, etc.)
+      });
+
+      proc.on('close', (code) => {
+        if (code !== 0) {
+          reject(new Error(`llama-simple exited with code ${code}`));
+          return;
+        }
+
+        // Extract just the completion (everything after the prompt)
+        let completion = fullOutput.slice(promptLength);
+
+        // Clean up: remove any trailing special tokens
+        completion = completion
+          .replace(/<\|im_end\|>/g, '')
+          .replace(/<\|im_start\|>/g, '')
+          .replace(/<\|endoftext\|>/g, '')
+          .trim();
+
+        resolve(completion);
+      });
+
+      proc.on('error', reject);
+    });
   }
 
   private formatChatPrompt(messages: Message[]): string {
