@@ -1,13 +1,15 @@
 /**
- * Hybrid Example - WebSpeech STT/TTS with Server LLM
+ * Hybrid Example - WebSpeech STT/TTS with Server LLM + Tools
  *
  * Best of both worlds:
  * - STT: WebSpeech API (browser native - instant, no download)
- * - LLM: Native llama.cpp (server - powerful models)
+ * - LLM: Native llama.cpp (server) with tool calling
  * - TTS: WebSpeech API (browser native - natural voices)
  *
- * This is great when you want server-side LLM power but
- * don't want to transfer audio over the network.
+ * Demonstrates tool/function calling with native LLM - try asking:
+ * - "What time is it?"
+ * - "What's the weather in Paris?"
+ * - "Roll 2d6 for me"
  *
  * NOTE: WebSpeech STT only works in Chrome, Edge, and Safari.
  */
@@ -115,6 +117,26 @@ client.on('responseChunk', (chunk) => {
 
 client.on('responseComplete', () => {
   currentAssistantEl = null;
+});
+
+// Tool call events - show when the assistant uses tools
+client.on('toolCall', (toolCall) => {
+  const div = document.createElement('div');
+  div.className = 'message tool-call';
+  div.innerHTML = `<span class="tool-icon">🔧</span> <strong>Using tool:</strong> ${toolCall.name}`;
+  if (Object.keys(toolCall.arguments).length > 0) {
+    div.innerHTML += `<code>${JSON.stringify(toolCall.arguments)}</code>`;
+  }
+  conversation.appendChild(div);
+  conversation.scrollTop = conversation.scrollHeight;
+});
+
+client.on('toolResult', (toolCallId, result) => {
+  const div = document.createElement('div');
+  div.className = 'message tool-result';
+  div.innerHTML = `<span class="tool-icon">✓</span> <strong>Result:</strong> <code>${JSON.stringify(result)}</code>`;
+  conversation.appendChild(div);
+  conversation.scrollTop = conversation.scrollHeight;
 });
 
 client.on('error', (err) => {
