@@ -28,6 +28,21 @@ import {
 
 // ============ Types ============
 
+export interface BrowserSupport {
+  /** Web Speech API speech recognition (Chrome, Edge, Safari only) */
+  webSpeechSTT: boolean;
+  /** Web Speech API speech synthesis (most browsers) */
+  webSpeechTTS: boolean;
+  /** WebGPU for ML acceleration (Chrome, Edge) */
+  webGPU: boolean;
+  /** MediaDevices API for microphone access */
+  mediaDevices: boolean;
+  /** WebSocket support */
+  webSocket: boolean;
+  /** AudioContext for audio processing */
+  audioContext: boolean;
+}
+
 export type VoiceClientStatus =
   | 'disconnected'
   | 'connecting'
@@ -119,6 +134,63 @@ function isWebSpeechTTS(obj: unknown): obj is WebSpeechTTS {
 // ============ Voice Client ============
 
 export class VoiceClient {
+  // ============ Static Methods ============
+
+  /**
+   * Check browser support for voice features.
+   * Call this before creating a VoiceClient to determine what's available.
+   *
+   * @example
+   * const support = VoiceClient.getBrowserSupport();
+   * if (!support.webSpeechSTT) {
+   *   showMessage("Voice input requires Chrome, Edge, or Safari");
+   * }
+   */
+  static getBrowserSupport(): BrowserSupport {
+    const hasWindow = typeof window !== 'undefined';
+
+    return {
+      webSpeechSTT: hasWindow && !!(
+        (window as any).SpeechRecognition ||
+        (window as any).webkitSpeechRecognition
+      ),
+      webSpeechTTS: hasWindow && 'speechSynthesis' in window,
+      webGPU: hasWindow && 'gpu' in navigator,
+      mediaDevices: hasWindow && !!(navigator.mediaDevices?.getUserMedia),
+      webSocket: hasWindow && 'WebSocket' in window,
+      audioContext: hasWindow && !!(
+        (window as any).AudioContext ||
+        (window as any).webkitAudioContext
+      ),
+    };
+  }
+
+  /**
+   * Get a human-readable description of what's not supported.
+   * Returns null if everything needed for basic operation is supported.
+   */
+  static getUnsupportedFeatures(): string[] {
+    const support = VoiceClient.getBrowserSupport();
+    const issues: string[] = [];
+
+    if (!support.webSpeechSTT) {
+      issues.push('Speech recognition (WebSpeech STT) - use Chrome, Edge, or Safari, or use WhisperSTT for local transcription');
+    }
+    if (!support.mediaDevices) {
+      issues.push('Microphone access (MediaDevices API)');
+    }
+    if (!support.audioContext) {
+      issues.push('Audio processing (AudioContext)');
+    }
+    if (!support.webSocket) {
+      issues.push('WebSocket connections');
+    }
+
+    return issues;
+  }
+
+  // ============ Instance Properties ============
+
   private config: {
     sampleRate: number;
     autoReconnect: boolean;
@@ -158,6 +230,9 @@ export class VoiceClient {
   private mediaRecording = false;
 
   constructor(config: VoiceClientConfig) {
+    // Check browser support first
+    this.validateBrowserSupport(config);
+
     // Determine what's local vs remote
     const hasLocalSTT = config.stt !== undefined && config.stt !== null;
     const hasLocalLLM = config.llm !== undefined && config.llm !== null;
@@ -833,6 +908,63 @@ export class VoiceClient {
       this.reconnectTimer = null;
       this.connect();
     }, this.config.reconnectDelay);
+  }
+
+  private validateBrowserSupport(config: VoiceClientConfig): void {
+    const support = VoiceClient.getBrowserSupport();
+
+    // Check WebSpeech STT if trying to use it
+    if (config.stt instanceof WebSpeechSTT) {
+      if (!support.webSpeechSTT) {
+        throw new Error(
+          'WebSpeech STT is not supported in this browser.\n\n' +
+          'Options:\n' +
+          '  1. Use Chrome, Edge, or Safari (they support Web Speech API)\n' +
+          '  2. Use WhisperSTT for local transcription (works in all browsers with WebGPU)\n' +
+          '  3. Use server-side STT by setting stt: null with a serverUrl\n\n' +
+          'Example with WhisperSTT:\n' +
+          '  import { WhisperSTT } from "voice-pipeline";\n' +
+          '  const client = new VoiceClient({ stt: new WhisperSTT({ model: "Xenova/whisper-tiny" }), ... })'
+        );
+      }
+    }
+
+    // Check WebSpeech TTS if trying to use it
+    if (config.tts instanceof WebSpeechTTS) {
+      if (!support.webSpeechTTS) {
+        throw new Error(
+          'WebSpeech TTS is not supported in this browser.\n\n' +
+          'Options:\n' +
+          '  1. Use a different browser (most modern browsers support speech synthesis)\n' +
+          '  2. Use server-side TTS by setting tts: null with a serverUrl'
+        );
+      }
+    }
+
+    // Check MediaDevices for any STT (local or server)
+    const needsMicrophone = config.stt !== undefined || config.stt === null;
+    if (needsMicrophone && !support.mediaDevices) {
+      throw new Error(
+        'Microphone access (MediaDevices API) is not available.\n' +
+        'This may be because:\n' +
+        '  1. The page is not served over HTTPS\n' +
+        '  2. The browser does not support getUserMedia\n' +
+        '  3. Microphone permissions were denied'
+      );
+    }
+
+    // Check WebSocket if using server
+    if (config.serverUrl && !support.webSocket) {
+      throw new Error('WebSocket is not supported in this browser.');
+    }
+
+    // Check AudioContext for audio processing
+    if (!support.audioContext) {
+      throw new Error(
+        'AudioContext is not supported in this browser.\n' +
+        'Audio processing requires a modern browser with Web Audio API support.'
+      );
+    }
   }
 }
 

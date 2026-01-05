@@ -1,35 +1,54 @@
 /**
- * Local Transformers.js Example
+ * Hybrid Example - WebSpeech STT/TTS with Server LLM
  *
- * Everything runs in the browser - no server needed!
- * - STT: Whisper (Transformers.js via WebGPU)
- * - LLM: SmolLM (Transformers.js via WebGPU)
- * - TTS: WebSpeech API (browser native)
+ * Best of both worlds:
+ * - STT: WebSpeech API (browser native - instant, no download)
+ * - LLM: Native llama.cpp (server - powerful models)
+ * - TTS: WebSpeech API (browser native - natural voices)
  *
- * Higher quality STT than WebSpeech, but requires model download.
+ * This is great when you want server-side LLM power but
+ * don't want to transfer audio over the network.
+ *
+ * NOTE: WebSpeech STT only works in Chrome, Edge, and Safari.
  */
 
-import { createVoiceClient, WebSpeechTTS } from 'voice-pipeline/client';
-import { WhisperSTT, SmolLM } from 'voice-pipeline';
+import { VoiceClient, createVoiceClient, WebSpeechSTT, WebSpeechTTS } from 'voice-pipeline/client';
+
+// ============ Browser Support Check ============
+
+const support = VoiceClient.getBrowserSupport();
+
+if (!support.webSpeechSTT) {
+  document.body.innerHTML = `
+    <div style="max-width: 600px; margin: 50px auto; padding: 20px; font-family: system-ui; text-align: center;">
+      <h1>⚠️ Browser Not Supported</h1>
+      <p>WebSpeech STT is not available in this browser.</p>
+      <p style="color: #666;">
+        This example uses the Web Speech API for voice recognition, which is only supported in
+        <strong>Chrome</strong>, <strong>Edge</strong>, and <strong>Safari</strong>.
+      </p>
+      <div style="margin-top: 20px; padding: 15px; background: #f0f9ff; border-radius: 8px;">
+        <p><strong>Try one of these alternatives:</strong></p>
+        <ul style="text-align: left; display: inline-block;">
+          <li><a href="../native-native-native/">native-native-native</a> - Server handles everything</li>
+          <li><a href="../transformers-transformers-speech/">transformers-transformers-speech</a> - Server STT/LLM, local TTS</li>
+        </ul>
+      </div>
+    </div>
+  `;
+  throw new Error('WebSpeech STT not supported');
+}
 
 // ============ Config ============
 
 const client = createVoiceClient({
-  // All components are local - no server needed!
-  stt: new WhisperSTT({
-    model: 'Xenova/whisper-tiny.en',
-    dtype: 'q8',
-  }),
-  llm: new SmolLM({
-    model: 'HuggingFaceTB/SmolLM2-360M-Instruct',
-    dtype: 'q4',
-    maxNewTokens: 140,
-    temperature: 0.7,
-    device: 'webgpu',
-  }),
+  // Local STT - transcribed text sent to server
+  stt: new WebSpeechSTT({ language: 'en-US' }),
+  // Server LLM - just processes text
+  llm: null,
+  // Local TTS - speaks response text from server
   tts: new WebSpeechTTS({ voiceName: 'Samantha', rate: 1.1 }),
-  systemPrompt: 'You are a helpful voice assistant. Keep responses brief—1-2 sentences. Speak naturally.',
-  // Note: no serverUrl needed!
+  serverUrl: 'ws://localhost:3104',
 });
 
 // ============ UI Elements ============
@@ -62,15 +81,15 @@ function updateMessage(el: HTMLElement, text: string): void {
 
 client.on('status', (newStatus) => {
   const statusMap: Record<string, string> = {
-    disconnected: 'Not initialized',
-    initializing: 'Loading models...',
-    ready: 'Ready (fully local)',
+    disconnected: 'Disconnected',
+    connecting: 'Connecting...',
+    ready: 'Ready (hybrid mode)',
     listening: 'Listening...',
-    processing: 'Thinking...',
+    processing: 'Server thinking...',
     speaking: 'Speaking...',
   };
   status.textContent = statusMap[newStatus] || newStatus;
-  recordBtn.disabled = !['ready', 'speaking'].includes(newStatus);
+  recordBtn.disabled = newStatus === 'disconnected' || newStatus === 'connecting' || newStatus === 'processing';
 
   if (newStatus === 'listening') {
     recordBtn.textContent = '⏹️ Stop';
@@ -78,12 +97,6 @@ client.on('status', (newStatus) => {
   } else {
     recordBtn.textContent = '🎤 Hold to Speak';
     recordBtn.classList.remove('recording');
-  }
-});
-
-client.on('progress', ({ status: progressStatus, file, progress }) => {
-  if (progressStatus === 'progress' && progress) {
-    status.textContent = `Loading: ${file?.split('/').pop() || 'model'} ${Math.round(progress)}%`;
   }
 });
 
@@ -135,9 +148,10 @@ document.addEventListener('keyup', (e) => {
   }
 });
 
-// ============ Initialize ============
+// ============ Connect ============
 
-console.log('Mode:', client.getMode());
-console.log('Local components:', client.getLocalComponents());
+console.log('Mode:', client.getMode()); // 'hybrid'
+console.log('Local components:', client.getLocalComponents()); // { stt: true, llm: false, tts: true }
 
-client.connect(); // No server connection - just initializes local components
+client.connect();
+

@@ -23,7 +23,7 @@
 
 // Main SDK
 export { VoiceClient, createVoiceClient } from './voice-client';
-export type { VoiceClientConfig, VoiceClientEvents, VoiceClientStatus } from './voice-client';
+export type { VoiceClientConfig, VoiceClientEvents, VoiceClientStatus, BrowserSupport } from './voice-client';
 
 // Browser speech APIs (for local STT/TTS)
 export { WebSpeechSTT } from './web-speech-stt';

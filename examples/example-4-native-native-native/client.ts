@@ -1,32 +1,22 @@
 /**
- * Fully Local Browser Example
+ * Browser Client for Server-Native Example
  *
- * Everything runs in the browser - no server needed!
- * - STT: WebSpeech API (browser native)
- * - LLM: Transformers.js (SmolLM via WebGPU)
- * - TTS: WebSpeech API (browser native)
- *
- * This is the simplest setup - no models to download for STT/TTS.
+ * Fully remote mode - server handles everything using native binaries:
+ * - STT: whisper.cpp (server)
+ * - LLM: llama.cpp (server)
+ * - TTS: sherpa-onnx (server)
  */
 
-import { createVoiceClient, WebSpeechSTT, WebSpeechTTS } from 'voice-pipeline/client';
-import { SmolLM } from 'voice-pipeline';
+import { createVoiceClient } from 'voice-pipeline/client';
 
 // ============ Config ============
 
 const client = createVoiceClient({
-  // All components are local - no server needed!
-  stt: new WebSpeechSTT({ language: 'en-US' }),
-  llm: new SmolLM({
-    model: 'HuggingFaceTB/SmolLM2-360M-Instruct',
-    dtype: 'q4',
-    maxNewTokens: 140,
-    temperature: 0.7,
-    device: 'webgpu',
-  }),
-  tts: new WebSpeechTTS({ voiceName: 'Samantha', rate: 1.1 }),
-  systemPrompt: 'You are a helpful voice assistant. Keep responses brief—1-2 sentences. Speak naturally.',
-  // Note: no serverUrl needed!
+  // All null = server handles everything
+  stt: null,
+  llm: null,
+  tts: null,
+  serverUrl: 'ws://localhost:3101',
 });
 
 // ============ UI Elements ============
@@ -59,15 +49,15 @@ function updateMessage(el: HTMLElement, text: string): void {
 
 client.on('status', (newStatus) => {
   const statusMap: Record<string, string> = {
-    disconnected: 'Not initialized',
-    initializing: 'Loading LLM model...',
-    ready: 'Ready (fully local)',
+    disconnected: 'Disconnected',
+    connecting: 'Connecting...',
+    ready: 'Ready (native server)',
     listening: 'Listening...',
-    processing: 'Thinking...',
+    processing: 'Processing...',
     speaking: 'Speaking...',
   };
   status.textContent = statusMap[newStatus] || newStatus;
-  recordBtn.disabled = !['ready', 'speaking'].includes(newStatus);
+  recordBtn.disabled = newStatus === 'disconnected' || newStatus === 'connecting' || newStatus === 'processing';
 
   if (newStatus === 'listening') {
     recordBtn.textContent = '⏹️ Stop';
@@ -75,12 +65,6 @@ client.on('status', (newStatus) => {
   } else {
     recordBtn.textContent = '🎤 Hold to Speak';
     recordBtn.classList.remove('recording');
-  }
-});
-
-client.on('progress', ({ status: progressStatus, file, progress }) => {
-  if (progressStatus === 'progress' && progress) {
-    status.textContent = `Loading: ${file?.split('/').pop() || 'model'} ${Math.round(progress)}%`;
   }
 });
 
@@ -132,11 +116,9 @@ document.addEventListener('keyup', (e) => {
   }
 });
 
-// ============ Initialize ============
+// ============ Connect ============
 
-// Show mode info
 console.log('Mode:', client.getMode());
 console.log('Local components:', client.getLocalComponents());
 
-client.connect(); // No server connection - just initializes local components
-
+client.connect();

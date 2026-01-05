@@ -1,22 +1,26 @@
 /**
- * Browser Client for Server-Native Example
+ * Client for Mixed Server Example
  *
- * Fully remote mode - server handles everything using native binaries:
- * - STT: whisper.cpp (server)
- * - LLM: llama.cpp (server)
- * - TTS: sherpa-onnx (server)
+ * Server uses native whisper.cpp + Transformers.js LLM
+ * Client handles TTS with WebSpeech
+ *
+ * - STT: Native whisper.cpp (server)
+ * - LLM: Transformers.js SmolLM (server)
+ * - TTS: WebSpeech API (browser)
  */
 
-import { createVoiceClient } from 'voice-pipeline/client';
+import { createVoiceClient, WebSpeechTTS } from 'voice-pipeline/client';
 
 // ============ Config ============
 
 const client = createVoiceClient({
-  // All null = server handles everything
+  // Server handles STT (native whisper.cpp)
   stt: null,
+  // Server handles LLM (Transformers.js)
   llm: null,
-  tts: null,
-  serverUrl: 'ws://localhost:8081',
+  // Local TTS - browser WebSpeech
+  tts: new WebSpeechTTS({ voiceName: 'Samantha', rate: 1.1 }),
+  serverUrl: 'ws://localhost:3102', // Points to mixed server
 });
 
 // ============ UI Elements ============
@@ -51,9 +55,9 @@ client.on('status', (newStatus) => {
   const statusMap: Record<string, string> = {
     disconnected: 'Disconnected',
     connecting: 'Connecting...',
-    ready: 'Ready (native server)',
+    ready: 'Ready (native STT + TF LLM + browser TTS)',
     listening: 'Listening...',
-    processing: 'Processing...',
+    processing: 'Server processing...',
     speaking: 'Speaking...',
   };
   status.textContent = statusMap[newStatus] || newStatus;
@@ -122,3 +126,4 @@ console.log('Mode:', client.getMode());
 console.log('Local components:', client.getLocalComponents());
 
 client.connect();
+

@@ -1,12 +1,15 @@
 /**
- * Client for Mixed Server Example
+ * Hybrid Example - Server STT+LLM with Browser TTS
  *
- * Server uses native whisper.cpp + Transformers.js LLM
- * Client handles TTS with WebSpeech
- *
- * - STT: Native whisper.cpp (server)
- * - LLM: Transformers.js SmolLM (server)
+ * Server handles STT and LLM, browser handles TTS:
+ * - STT: Whisper Transformers.js (server)
+ * - LLM: SmolLM Transformers.js (server)
  * - TTS: WebSpeech API (browser)
+ *
+ * Good when you want:
+ * - High-quality server-side transcription (better than WebSpeech)
+ * - Natural browser voices
+ * - Lower bandwidth (no audio sent back from server)
  */
 
 import { createVoiceClient, WebSpeechTTS } from 'voice-pipeline/client';
@@ -14,13 +17,13 @@ import { createVoiceClient, WebSpeechTTS } from 'voice-pipeline/client';
 // ============ Config ============
 
 const client = createVoiceClient({
-  // Server handles STT (native whisper.cpp)
+  // Server handles STT - client sends audio
   stt: null,
-  // Server handles LLM (Transformers.js)
+  // Server handles LLM
   llm: null,
-  // Local TTS - browser WebSpeech
+  // Local TTS - speaks response text from server
   tts: new WebSpeechTTS({ voiceName: 'Samantha', rate: 1.1 }),
-  serverUrl: 'ws://localhost:8082', // Points to mixed server
+  serverUrl: 'ws://localhost:3103',
 });
 
 // ============ UI Elements ============
@@ -55,7 +58,7 @@ client.on('status', (newStatus) => {
   const statusMap: Record<string, string> = {
     disconnected: 'Disconnected',
     connecting: 'Connecting...',
-    ready: 'Ready (native STT + TF LLM + browser TTS)',
+    ready: 'Ready (server STT+LLM, browser TTS)',
     listening: 'Listening...',
     processing: 'Server processing...',
     speaking: 'Speaking...',
@@ -122,8 +125,8 @@ document.addEventListener('keyup', (e) => {
 
 // ============ Connect ============
 
-console.log('Mode:', client.getMode());
-console.log('Local components:', client.getLocalComponents());
+console.log('Mode:', client.getMode()); // 'hybrid'
+console.log('Local components:', client.getLocalComponents()); // { stt: false, llm: false, tts: true }
 
 client.connect();
 

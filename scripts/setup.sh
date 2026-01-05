@@ -86,25 +86,27 @@ else
   fi
 fi
 
-# --- llama.cpp ---
+# --- llama.cpp (llama-simple) ---
 echo ""
-echo "==> Setting up llama-cli..."
-if [ -L "llama-cli" ] || [ -f "llama-cli" ]; then
+echo "==> Setting up llama-simple..."
+if [ -L "llama-simple" ] || [ -f "llama-simple" ]; then
   echo "    Already exists, skipping."
 else
-  # Try to find llama-cli from Homebrew or PATH
-  if command -v llama-cli &> /dev/null; then
-    LLAMA_PATH="$(command -v llama-cli)"
-    ln -s "$LLAMA_PATH" llama-cli
+  # Try to find llama-simple from PATH or common locations
+  if command -v llama-simple &> /dev/null; then
+    LLAMA_PATH="$(command -v llama-simple)"
+    ln -s "$LLAMA_PATH" llama-simple
     echo "    Linked to $LLAMA_PATH"
-  elif [ -f "/opt/homebrew/bin/llama-cli" ]; then
-    ln -s /opt/homebrew/bin/llama-cli llama-cli
-    echo "    Linked to /opt/homebrew/bin/llama-cli"
-  elif [ -f "/usr/local/bin/llama-cli" ]; then
-    ln -s /usr/local/bin/llama-cli llama-cli
-    echo "    Linked to /usr/local/bin/llama-cli"
+  elif [ -f "/opt/homebrew/bin/llama-simple" ]; then
+    ln -s /opt/homebrew/bin/llama-simple llama-simple
+    echo "    Linked to /opt/homebrew/bin/llama-simple"
+  elif [ -f "/usr/local/bin/llama-simple" ]; then
+    ln -s /usr/local/bin/llama-simple llama-simple
+    echo "    Linked to /usr/local/bin/llama-simple"
   else
-    echo "    ⚠️  llama-cli not found. Install with: brew install llama.cpp"
+    echo "    ⚠️  llama-simple not found."
+    echo "       Build from source: git clone https://github.com/ggerganov/llama.cpp && cd llama.cpp && make llama-simple"
+    echo "       Then copy llama-simple to your PATH or $BIN_DIR"
   fi
 fi
 
@@ -180,14 +182,20 @@ echo "Binaries:"
 ls -lh "$BIN_DIR"
 
 # Check for missing dependencies
-MISSING=""
-[ ! -L "$BIN_DIR/whisper-cli" ] && [ ! -f "$BIN_DIR/whisper-cli" ] && MISSING="$MISSING whisper-cpp"
-[ ! -L "$BIN_DIR/llama-cli" ] && [ ! -f "$BIN_DIR/llama-cli" ] && MISSING="$MISSING llama.cpp"
+MISSING_BREW=""
+MISSING_BUILD=""
+[ ! -L "$BIN_DIR/whisper-cli" ] && [ ! -f "$BIN_DIR/whisper-cli" ] && MISSING_BREW="$MISSING_BREW whisper-cpp"
+[ ! -L "$BIN_DIR/llama-simple" ] && [ ! -f "$BIN_DIR/llama-simple" ] && MISSING_BUILD="llama-simple"
 
-if [ -n "$MISSING" ]; then
+if [ -n "$MISSING_BREW" ] || [ -n "$MISSING_BUILD" ]; then
   echo ""
-  echo "⚠️  Missing dependencies. Install with:"
-  echo "  brew install$MISSING"
+  echo "⚠️  Missing dependencies:"
+  if [ -n "$MISSING_BREW" ]; then
+    echo "  brew install$MISSING_BREW"
+  fi
+  if [ -n "$MISSING_BUILD" ]; then
+    echo "  llama-simple: Build from llama.cpp source (make llama-simple)"
+  fi
   echo ""
   echo "Then re-run: npx voice-pipeline setup"
 else

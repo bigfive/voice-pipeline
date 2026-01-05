@@ -68,7 +68,7 @@ const client = createVoiceClient({
   stt: null,   // server handles
   llm: null,   // server handles
   tts: null,   // server handles
-  serverUrl: 'ws://localhost:8080',
+  serverUrl: 'ws://localhost:3100',
 });
 ```
 
@@ -88,7 +88,7 @@ const pipeline = new VoicePipeline({
 await pipeline.initialize();
 
 const handler = createPipelineHandler(pipeline);
-const wss = new WebSocketServer({ port: 8080 });
+const wss = new WebSocketServer({ port: 3100 });
 
 wss.on('connection', (ws) => {
   const session = handler.createSession();
@@ -113,7 +113,7 @@ const client = createVoiceClient({
   stt: new WebSpeechSTT({ language: 'en-US' }),  // local
   llm: null,                                      // server
   tts: new WebSpeechTTS({ voiceName: 'Samantha' }), // local
-  serverUrl: 'ws://localhost:8080',
+  serverUrl: 'ws://localhost:3100',
 });
 ```
 
@@ -163,7 +163,7 @@ const client = createVoiceClient({
   tts: TTSPipeline | WebSpeechTTS | null,
 
   // Required if any component is null
-  serverUrl: 'ws://localhost:8080',
+  serverUrl: 'ws://localhost:3100',
 
   // Required if llm is provided locally
   systemPrompt: 'You are a helpful assistant.',

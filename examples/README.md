@@ -7,18 +7,18 @@ Interactive examples demonstrating all the different configuration modes.
 ```bash
 npm install
 
-# Run everything at once (all servers + vite)
-npm run dev:all
-# Open http://localhost:5173
+# Pick an example to run (starts both Vite + server):
+npm run dev                     # Vite only (for local examples that don't need a server)
+npm run dev:transformers        # transformers-transformers-transformers (port 3100)
+npm run dev:native              # native-native-native (port 3101)
+npm run dev:native-transformers # native-transformers-speech (port 3102)
+npm run dev:transformers-speech # transformers-transformers-speech (port 3103)
+npm run dev:speech-native       # speech-native-speech (port 3104)
 
-# Or run individual servers:
-npm run dev                    # Vite only (for local examples)
-npm run dev:transformers       # transformers-transformers-transformers (port 8080)
-npm run dev:native             # native-native-native (port 8081)
-npm run dev:native-transformers # native-transformers-speech (port 8082)
-npm run dev:transformers-speech # transformers-transformers-speech (port 8083)
-npm run dev:speech-native      # speech-native-speech (port 8084)
+# Then open http://localhost:5173
 ```
+
+> **Note:** Each server example loads ML models into memory. Run one at a time to avoid exhausting RAM.
 
 ## Available Examples
 
@@ -113,15 +113,13 @@ Naming convention: `{stt}-{llm}-{tts}` where each component is:
 
 ## Server Ports
 
-When running `npm run dev:all`, each server runs on a unique port:
-
-| Server | Port |
-|--------|------|
-| `transformers-transformers-transformers` | 8080 |
-| `native-native-native` | 8081 |
-| `native-transformers-speech` | 8082 |
-| `transformers-transformers-speech` | 8083 |
-| `speech-native-speech` | 8084 |
+| Example | Port |
+|---------|------|
+| `transformers-transformers-transformers` | 3100 |
+| `native-native-native` | 3101 |
+| `native-transformers-speech` | 3102 |
+| `transformers-transformers-speech` | 3103 |
+| `speech-native-speech` | 3104 |
 
 ## Prerequisites
 

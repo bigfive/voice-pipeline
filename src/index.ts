@@ -16,6 +16,3 @@ export * from './backends';
 // Services
 export * from './services';
 
-// Cache utilities (for native backends)
-export { getCacheDir, getModelsDir, getBinDir, defaultPaths } from './cache';
-

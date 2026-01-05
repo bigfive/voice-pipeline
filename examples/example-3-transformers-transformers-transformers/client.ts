@@ -16,7 +16,7 @@ const client = createVoiceClient({
   stt: null,
   llm: null,
   tts: null,
-  serverUrl: 'ws://localhost:8080',
+  serverUrl: 'ws://localhost:3100',
 });
 
 // ============ UI Elements ============

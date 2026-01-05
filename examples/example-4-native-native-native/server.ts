@@ -9,11 +9,11 @@
  */
 
 import { WebSocketServer } from 'ws';
-import { VoicePipeline, defaultPaths, getCacheDir } from 'voice-pipeline';
-import { NativeWhisperSTT, NativeLlama, NativeSherpaOnnxTTS } from 'voice-pipeline/native';
+import { VoicePipeline } from 'voice-pipeline';
+import { NativeWhisperSTT, NativeLlama, NativeSherpaOnnxTTS, defaultPaths, getCacheDir } from 'voice-pipeline/native';
 import { createPipelineHandler } from 'voice-pipeline/server';
 
-const PORT = 8081;
+const PORT = 3101;
 
 // Use default paths from ~/.cache/voice-pipeline/
 // Run `npx voice-pipeline setup` to download models and binaries

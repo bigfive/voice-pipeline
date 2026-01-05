@@ -1,47 +1,53 @@
 /**
- * Server Example - Transformers.js Backend
+ * Server for speech-native-speech Example
  *
- * This server supports both:
- * - Full remote mode: STT → LLM → TTS (client sends audio, receives audio)
- * - Hybrid mode: LLM only (client sends text, receives text)
+ * Hybrid mode: Client handles STT and TTS, server only does LLM
+ * - STT: Client (WebSpeech) - server receives text
+ * - LLM: Native llama.cpp
+ * - TTS: Client (WebSpeech) - server sends text only
  *
- * The server automatically adapts based on client capabilities.
+ * Run: npm run dev:speech-native
  */
 
 import { WebSocketServer } from 'ws';
-import { VoicePipeline, WhisperSTT, SmolLM, SpeechT5TTS } from 'voice-pipeline';
+import { VoicePipeline } from 'voice-pipeline';
+import { NativeLlama, defaultPaths, getCacheDir } from 'voice-pipeline/native';
 import { createPipelineHandler } from 'voice-pipeline/server';
 
-const PORT = 8080;
+const PORT = 3104;
 
 const CONFIG = {
-  stt: { model: 'Xenova/whisper-small', dtype: 'q8', language: 'en' },
-  llm: { model: 'HuggingFaceTB/SmolLM2-1.7B-Instruct', dtype: 'q4', maxNewTokens: 140, temperature: 0.7 },
-  tts: { model: 'Xenova/speecht5_tts', dtype: 'fp16', speakerEmbeddings: 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/speaker_embeddings.bin' },
+  llm: {
+    ...defaultPaths.llama,
+    maxNewTokens: 140,
+    temperature: 0.7,
+    gpuLayers: 0,
+  },
   systemPrompt: 'You are a helpful voice assistant. Keep responses brief—1-2 sentences. Speak naturally.',
 };
 
 async function main(): Promise<void> {
-  console.log('Loading Transformers.js models...');
+  console.log('Initializing LLM-only pipeline (client handles STT/TTS)...');
+  console.log(`  Cache: ${getCacheDir()}`);
+  console.log(`  Llama: ${CONFIG.llm.binaryPath}`);
+  console.log(`  STT:   Client handles (WebSpeech)`);
+  console.log(`  TTS:   Client handles (WebSpeech)`);
 
-  // Full pipeline - server can handle STT, LLM, and TTS
-  // Hybrid clients (with local STT/TTS) will skip those steps automatically
+  // LLM-only pipeline - client handles STT and TTS
   const pipeline = new VoicePipeline({
-    stt: new WhisperSTT(CONFIG.stt),
-    llm: new SmolLM(CONFIG.llm),
-    tts: new SpeechT5TTS(CONFIG.tts),
+    stt: null,  // Client does WebSpeech STT
+    llm: new NativeLlama(CONFIG.llm),
+    tts: null,  // Client does WebSpeech TTS
     systemPrompt: CONFIG.systemPrompt,
   });
 
   await pipeline.initialize();
-  console.log('Models loaded.');
+  console.log('LLM pipeline ready.');
 
-  // Create the handler
   const handler = createPipelineHandler(pipeline);
   const pipelineInfo = handler.getPipelineInfo();
   console.log(`Pipeline capabilities: STT=${pipelineInfo.hasSTT}, TTS=${pipelineInfo.hasTTS}`);
 
-  // Set up WebSocket server
   const wss = new WebSocketServer({ port: PORT });
 
   wss.on('connection', (ws) => {
@@ -52,7 +58,6 @@ async function main(): Promise<void> {
       try {
         const message = JSON.parse(data.toString());
 
-        // Log capabilities when received
         if (message.type === 'capabilities') {
           const caps = session.getCapabilities();
           console.log(`Client capabilities: STT=${caps.hasSTT}, TTS=${caps.hasTTS}`);
@@ -74,9 +79,9 @@ async function main(): Promise<void> {
 
   console.log(`Server running on ws://localhost:${PORT}`);
   console.log('');
-  console.log('Supported client modes:');
-  console.log('  - Full remote: client sends audio, receives audio');
-  console.log('  - Hybrid:      client sends text, receives text (client does STT/TTS)');
+  console.log('This server only runs LLM - client handles STT and TTS with WebSpeech.');
+  console.log('Only text is exchanged over the wire (no audio).');
 }
 
 main().catch(console.error);
+

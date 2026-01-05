@@ -10,11 +10,11 @@
  */
 
 import { WebSocketServer } from 'ws';
-import { VoicePipeline, SmolLM, defaultPaths, getCacheDir } from 'voice-pipeline';
-import { NativeWhisperSTT } from 'voice-pipeline/native';
+import { VoicePipeline, SmolLM } from 'voice-pipeline';
+import { NativeWhisperSTT, defaultPaths, getCacheDir } from 'voice-pipeline/native';
 import { createPipelineHandler } from 'voice-pipeline/server';
 
-const PORT = 8082;
+const PORT = 3102;
 
 const CONFIG = {
   stt: {

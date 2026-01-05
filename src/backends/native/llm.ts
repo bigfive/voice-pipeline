@@ -22,7 +22,7 @@ export class NativeLlama implements LLMPipeline {
     console.log('Initializing native LLM (llama.cpp)...');
 
     if (!existsSync(this.config.binaryPath)) {
-      throw new Error(`llama.cpp binary not found at: ${this.config.binaryPath}`);
+      throw new Error(`llama-simple binary not found at: ${this.config.binaryPath}`);
     }
     if (!existsSync(this.config.modelPath)) {
       throw new Error(`LLM model not found at: ${this.config.modelPath}`);

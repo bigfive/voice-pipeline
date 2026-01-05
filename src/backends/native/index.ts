@@ -8,3 +8,6 @@ export { NativeWhisperSTT as NativeWhisperPipeline } from './stt';
 export { NativeLlama as NativeLlamaPipeline } from './llm';
 export { NativeSherpaOnnxTTS as NativeSherpaOnnxTTSPipeline, NativePiperTTS as NativePiperPipeline } from './tts';
 
+// Cache utilities (Node.js only)
+export { getCacheDir, getModelsDir, getBinDir, defaultPaths } from '../../cache';
+
