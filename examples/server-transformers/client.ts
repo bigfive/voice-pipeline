@@ -10,10 +10,13 @@ const SAMPLE_RATE = 16000;
 // ============ State ============
 
 let ws: WebSocket | null = null;
-let audioContext: AudioContext;
+let audioContext: AudioContext | null = null;
+let playbackContext: AudioContext | null = null;
 let isRecording = false;
-let mediaRecorder: MediaRecorder | null = null;
+let mediaStream: MediaStream | null = null;
+let mediaStreamSource: MediaStreamAudioSourceNode | null = null;
 let audioWorklet: AudioWorkletNode | null = null;
+let workletInitialized = false;
 
 // ============ UI Elements ============
 
@@ -102,12 +105,13 @@ async function playNext(): Promise<void> {
   setStatus('Speaking...');
 
   const { audio, sampleRate } = audioQueue.shift()!;
-  audioContext = audioContext || new AudioContext();
-  const buffer = audioContext.createBuffer(1, audio.length, sampleRate);
+  // Use a separate context for playback to avoid interfering with recording
+  playbackContext = playbackContext || new AudioContext();
+  const buffer = playbackContext.createBuffer(1, audio.length, sampleRate);
   buffer.getChannelData(0).set(audio);
-  const source = audioContext.createBufferSource();
+  const source = playbackContext.createBufferSource();
   source.buffer = buffer;
-  source.connect(audioContext.destination);
+  source.connect(playbackContext.destination);
   source.onended = () => {
     isPlaying = false;
     if (audioQueue.length > 0) {
@@ -128,30 +132,38 @@ async function startRecording(): Promise<void> {
   recordBtn.classList.add('recording');
   setStatus('Listening...');
 
-  audioContext = audioContext || new AudioContext({ sampleRate: SAMPLE_RATE });
+  // Create a fresh AudioContext for each recording session to avoid accumulated state
+  if (audioContext) {
+    await audioContext.close();
+    workletInitialized = false;
+  }
+  audioContext = new AudioContext({ sampleRate: SAMPLE_RATE });
 
-  // Add worklet for PCM conversion
-  await audioContext.audioWorklet.addModule(
-    URL.createObjectURL(new Blob([`
-      class PCMProcessor extends AudioWorkletProcessor {
-        process(inputs) {
-          const input = inputs[0][0];
-          if (input) {
-            const int16 = new Int16Array(input.length);
-            for (let i = 0; i < input.length; i++) {
-              int16[i] = Math.max(-32768, Math.min(32767, input[i] * 32768));
+  // Register the worklet for this context
+  if (!workletInitialized) {
+    await audioContext.audioWorklet.addModule(
+      URL.createObjectURL(new Blob([`
+        class PCMProcessor extends AudioWorkletProcessor {
+          process(inputs) {
+            const input = inputs[0][0];
+            if (input) {
+              const int16 = new Int16Array(input.length);
+              for (let i = 0; i < input.length; i++) {
+                int16[i] = Math.max(-32768, Math.min(32767, input[i] * 32768));
+              }
+              this.port.postMessage(int16);
             }
-            this.port.postMessage(int16);
+            return true;
           }
-          return true;
         }
-      }
-      registerProcessor('pcm-processor', PCMProcessor);
-    `], { type: 'application/javascript' }))
-  );
+        registerProcessor('pcm-processor', PCMProcessor);
+      `], { type: 'application/javascript' }))
+    );
+    workletInitialized = true;
+  }
 
-  const stream = await navigator.mediaDevices.getUserMedia({ audio: { sampleRate: SAMPLE_RATE, channelCount: 1 } });
-  const source = audioContext.createMediaStreamSource(stream);
+  mediaStream = await navigator.mediaDevices.getUserMedia({ audio: { sampleRate: SAMPLE_RATE, channelCount: 1 } });
+  mediaStreamSource = audioContext.createMediaStreamSource(mediaStream);
   audioWorklet = new AudioWorkletNode(audioContext, 'pcm-processor');
 
   audioWorklet.port.onmessage = (e) => {
@@ -160,8 +172,7 @@ async function startRecording(): Promise<void> {
     send({ type: 'audio', data: float32ToBase64(float32), sampleRate: SAMPLE_RATE });
   };
 
-  source.connect(audioWorklet);
-  mediaRecorder = { stream } as any; // Store stream for cleanup
+  mediaStreamSource.connect(audioWorklet);
 }
 
 function float32ToBase64(audio: Float32Array): string {
@@ -179,13 +190,25 @@ async function stopRecording(): Promise<void> {
   setStatus('Processing...');
   recordBtn.disabled = true;
 
-  if (mediaRecorder) {
-    (mediaRecorder as any).stream.getTracks().forEach((t: MediaStreamTrack) => t.stop());
-    mediaRecorder = null;
+  // Disconnect and clean up all audio nodes in proper order
+  if (mediaStreamSource) {
+    mediaStreamSource.disconnect();
+    mediaStreamSource = null;
   }
   if (audioWorklet) {
     audioWorklet.disconnect();
     audioWorklet = null;
+  }
+  // Stop all tracks on the media stream
+  if (mediaStream) {
+    mediaStream.getTracks().forEach((t) => t.stop());
+    mediaStream = null;
+  }
+  // Close the recording AudioContext to fully release resources
+  if (audioContext) {
+    await audioContext.close();
+    audioContext = null;
+    workletInitialized = false;
   }
 
   send({ type: 'end_audio' });
