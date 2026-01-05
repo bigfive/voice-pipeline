@@ -1,11 +1,8 @@
 /**
  * Server Example - Native Backends (whisper.cpp, llama.cpp, sherpa-onnx)
  *
- * This server supports both:
- * - Full remote mode: STT → LLM → TTS (client sends audio, receives audio)
- * - Hybrid mode: LLM only (client sends text, receives text)
- *
- * The server automatically adapts based on client capabilities.
+ * Full remote mode: STT → LLM → TTS
+ * Client sends audio, server returns audio.
  */
 
 import { WebSocketServer } from 'ws';
@@ -41,8 +38,6 @@ async function main(): Promise<void> {
   console.log(`  Llama:        ${CONFIG.llm.binaryPath}`);
   console.log(`  Sherpa-ONNX:  ${CONFIG.tts.binaryPath}`);
 
-  // Full pipeline - server can handle STT, LLM, and TTS
-  // Hybrid clients (with local STT/TTS) will skip those steps automatically
   const pipeline = new VoicePipeline({
     stt: new NativeWhisperSTT(CONFIG.stt),
     llm: new NativeLlama(CONFIG.llm),
@@ -90,10 +85,6 @@ async function main(): Promise<void> {
   });
 
   console.log(`Server running on ws://localhost:${PORT}`);
-  console.log('');
-  console.log('Supported client modes:');
-  console.log('  - Full remote: client sends audio, receives audio');
-  console.log('  - Hybrid:      client sends text, receives text (client does STT/TTS)');
 }
 
 main().catch(console.error);

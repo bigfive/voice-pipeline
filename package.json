@@ -1,7 +1,7 @@
 {
   "name": "voice-pipeline",
   "version": "5.0.0",
-  "description": "Isomorphic STT → LLM → TTS pipeline library for voice assistants",
+  "description": "Isomorphic STT → LLM → TTS pipeline library for AI voice agents and voice assistants",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -60,6 +60,8 @@
   },
   "keywords": [
     "voice",
+    "voice-agent",
+    "ai-voice-agent",
     "speech",
     "stt",
     "tts",
@@ -67,7 +69,8 @@
     "whisper",
     "transformers",
     "webgpu",
-    "pipeline"
+    "pipeline",
+    "conversational-ai"
   ],
   "license": "MIT",
   "repository": {

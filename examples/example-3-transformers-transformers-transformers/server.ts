@@ -1,11 +1,8 @@
 /**
  * Server Example - Transformers.js Backend
  *
- * This server supports both:
- * - Full remote mode: STT → LLM → TTS (client sends audio, receives audio)
- * - Hybrid mode: LLM only (client sends text, receives text)
- *
- * The server automatically adapts based on client capabilities.
+ * Full remote mode: STT → LLM → TTS
+ * Client sends audio, server returns audio.
  */
 
 import { WebSocketServer } from 'ws';
@@ -24,8 +21,6 @@ const CONFIG = {
 async function main(): Promise<void> {
   console.log('Loading Transformers.js models...');
 
-  // Full pipeline - server can handle STT, LLM, and TTS
-  // Hybrid clients (with local STT/TTS) will skip those steps automatically
   const pipeline = new VoicePipeline({
     stt: new WhisperSTT(CONFIG.stt),
     llm: new SmolLM(CONFIG.llm),
@@ -73,10 +68,6 @@ async function main(): Promise<void> {
   });
 
   console.log(`Server running on ws://localhost:${PORT}`);
-  console.log('');
-  console.log('Supported client modes:');
-  console.log('  - Full remote: client sends audio, receives audio');
-  console.log('  - Hybrid:      client sends text, receives text (client does STT/TTS)');
 }
 
 main().catch(console.error);

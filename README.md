@@ -1,6 +1,6 @@
 # Voice Pipeline
 
-Isomorphic STT → LLM → TTS pipeline library for building voice assistants. Run entirely in the browser, on a server, or mix-and-match with browser APIs handling some parts.
+Isomorphic STT → LLM → TTS pipeline library for building AI voice agents and voice assistants. Run entirely in the browser, on a server, or mix-and-match with browser APIs handling some parts.
 
 ## Installation
 
@@ -119,13 +119,11 @@ const client = createVoiceClient({
 
 **Server:**
 ```typescript
-// Server automatically adapts based on client capabilities!
-// When client has local STT/TTS, server skips those steps.
-
+// Server only needs LLM - client handles STT/TTS
 const pipeline = new VoicePipeline({
-  stt: new NativeWhisperSTT({ ... }),  // only used if client sends audio
-  llm: new NativeLlama({ ... }),        // always used
-  tts: new NativeSherpaOnnxTTS({ ... }), // only used if client needs audio
+  stt: null,                    // client sends text
+  llm: new NativeLlama({ ... }),
+  tts: null,                    // client receives text
   systemPrompt: '...',
 });
 ```
@@ -264,6 +262,26 @@ voice-pipeline/
 │   └── voice-pipeline.ts     # Core orchestrator
 └── examples/                  # See examples/README.md
 ```
+
+## Advanced: Capability Detection
+
+The server supports automatic capability detection for scenarios where you need one server to handle multiple client types (e.g., during rolling deployments).
+
+```typescript
+// Server with full pipeline - adapts to client capabilities
+const pipeline = new VoicePipeline({
+  stt: new NativeWhisperSTT({ ... }),  // used if client sends audio
+  llm: new NativeLlama({ ... }),
+  tts: new NativeSherpaOnnxTTS({ ... }), // skipped if client has local TTS
+  systemPrompt: '...',
+});
+```
+
+When a client connects, it announces its capabilities. The server then:
+- Skips STT if client sends text instead of audio
+- Skips TTS if client handles speech synthesis locally
+
+This is useful for zero-downtime upgrades where old and new clients coexist, but for most cases you should just configure the server with exactly what it needs (using `null` for components the client handles).
 
 ## License
 
