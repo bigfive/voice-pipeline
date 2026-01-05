@@ -1,50 +1,36 @@
 # Voice Pipeline
 
-A flexible TypeScript library for building AI voice assistants that actually work the way you need them to.
-
-## Why This Exists
-
-Building a voice assistant involves three steps: **Speech-to-Text** (STT), **Language Model** (LLM), and **Text-to-Speech** (TTS). Most solutions force you into one of two boxes:
-
-1. **Fully cloud-based** — send audio to APIs, get audio back. Simple, but adds latency, costs money per request, and requires internet.
-2. **Fully local** — run everything on-device. Private and offline, but heavyweight and limited to smaller models.
-
-Yes, multimodal models exist that handle audio-in/audio-out natively — but they're expensive, not all models support it, and you lose control over the voice and transcription quality. For most apps, a modular pipeline is more practical: pick the best STT, pair it with any LLM (local or cloud), and choose a TTS voice that fits your brand.
-
-**Voice Pipeline takes a different approach**: you choose where each component runs. Mix browser-native speech APIs with a server-side LLM. Run a small TTS model locally but transcribe on the server. Or go fully local when you need offline support. The architecture adapts to your requirements rather than the other way around.
-
-## How It Works
-
-From your perspective as a developer, there's one client SDK (`VoiceClient`) that handles everything:
-
-```
-User speaks → [STT] → [LLM] → [TTS] → User hears response
-              ↑         ↑        ↑
-          (browser   (browser  (browser
-           or         or        or
-           server)    server)   server)
-```
-
-You configure which components run locally and which run on a server. The client handles all the coordination automatically — sending audio or text over WebSocket when needed, managing the pipeline flow, and providing events for transcripts and streaming responses.
-
-**Four modes emerge naturally:**
-
-| Mode | When to Use | What Happens |
-|------|-------------|--------------|
-| **Local** | Offline apps, privacy-critical, demos | Everything runs in browser. No server needed. |
-| **Remote** | Full control over the stack | Client sends audio, server runs STT/LLM/TTS locally, sends back audio. |
-| **Hybrid** | Low-latency with powerful LLMs | Browser handles instant STT/TTS, server runs the model. |
-| **Cloud** | Production apps, best-in-class LLMs | Server handles STT/TTS, proxies to OpenAI/Ollama/vLLM for intelligence. |
-
-The same push-to-talk interface works regardless of mode:
+Build voice assistants without the plumbing. One SDK, any backend, same interface.
 
 ```typescript
+const client = createVoiceClient({
+  stt: new WebSpeechSTT(),
+  llm: new SmolLM({ model: 'HuggingFaceTB/SmolLM2-360M-Instruct' }),
+  tts: new WebSpeechTTS(),
+  systemPrompt: 'You are a helpful assistant.',
+});
+
 await client.connect();
 button.onmousedown = () => client.startRecording();
 button.onmouseup = () => client.stopRecording();
 ```
 
-Events fire for transcripts, streaming response chunks, and status changes — your UI code stays the same whether you're running a 360M parameter model in-browser or hitting a server with a much larger one.
+That's a working voice assistant. No audio capture code, no streaming logic, no WebSocket boilerplate.
+
+**The trick:** each slot (STT, LLM, TTS) can run in the browser or on a server — swap `WebSpeechSTT()` for `null` and it runs server-side. Same API, same events, different backends.
+
+```
+User speaks → [STT] → [LLM] → [TTS] → User hears response
+              ↑         ↑        ↑
+           browser   browser   browser   ← fully local
+           server    server    server    ← fully remote
+           browser   server    browser   ← hybrid
+```
+
+**What you can mix:**
+- **Browser:** Web Speech APIs (zero install), Transformers.js (WebGPU)
+- **Server:** Transformers.js (Node.js), whisper.cpp, llama.cpp, sherpa-onnx (native)
+- **Cloud:** OpenAI, Ollama, vLLM, any OpenAI-compatible endpoint
 
 ## Installation
 
@@ -129,37 +115,7 @@ wss.on('connection', (ws) => {
 });
 ```
 
-### 3. Hybrid (Browser STT/TTS + Server LLM)
-
-Best of both worlds: instant browser speech APIs + powerful server models.
-
-**Client:**
-```typescript
-import { createVoiceClient, WebSpeechSTT, WebSpeechTTS } from 'voice-pipeline/client';
-
-const client = createVoiceClient({
-  stt: new WebSpeechSTT({ language: 'en-US' }),  // local
-  llm: null,                                      // server
-  tts: new WebSpeechTTS({ voiceName: 'Samantha' }), // local
-  serverUrl: 'ws://localhost:3100',
-});
-```
-
-**Server:**
-```typescript
-import { VoicePipeline } from 'voice-pipeline';
-import { NativeLlama } from 'voice-pipeline/native';
-
-// Server only needs LLM - client handles STT/TTS
-const pipeline = new VoicePipeline({
-  stt: null,                    // client sends text
-  llm: new NativeLlama({ ... }),
-  tts: null,                    // client receives text
-  systemPrompt: '...',
-});
-```
-
-### 4. Cloud LLM (OpenAI, Ollama, vLLM)
+### 3. Cloud LLM (OpenAI, Ollama, vLLM)
 
 Server handles all audio processing, proxies to cloud for intelligence. Best of both worlds: consistent speech quality + best-in-class LLMs.
 
@@ -195,6 +151,36 @@ const pipeline = new VoicePipeline({
 ```
 
 Works with **OpenAI**, **Ollama** (`http://localhost:11434/v1`), **vLLM**, **LMStudio**, and any OpenAI-compatible endpoint.
+
+### 4. Hybrid (Browser STT/TTS + Server LLM)
+
+Best of both worlds: instant browser speech APIs + powerful server models.
+
+**Client:**
+```typescript
+import { createVoiceClient, WebSpeechSTT, WebSpeechTTS } from 'voice-pipeline/client';
+
+const client = createVoiceClient({
+  stt: new WebSpeechSTT({ language: 'en-US' }),  // local
+  llm: null,                                      // server
+  tts: new WebSpeechTTS({ voiceName: 'Samantha' }), // local
+  serverUrl: 'ws://localhost:3100',
+});
+```
+
+**Server:**
+```typescript
+import { VoicePipeline } from 'voice-pipeline';
+import { NativeLlama } from 'voice-pipeline/native';
+
+// Server only needs LLM - client handles STT/TTS
+const pipeline = new VoicePipeline({
+  stt: null,                    // client sends text
+  llm: new NativeLlama({ ... }),
+  tts: null,                    // client receives text
+  systemPrompt: '...',
+});
+```
 
 ## API Reference
 
