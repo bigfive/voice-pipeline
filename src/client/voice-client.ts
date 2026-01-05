@@ -650,22 +650,24 @@ export class VoiceClient {
     ];
 
     try {
-      const fullResponse = await this.localLLM.generate(history, (token) => {
-        this.currentResponse += token;
-        this.emit('responseChunk', token);
+      const result = await this.localLLM.generate(history, {
+        onToken: (token: string) => {
+          this.currentResponse += token;
+          this.emit('responseChunk', token);
 
-        if (isWebSpeechTTS(this.localTTS)) {
-          this.handleLocalTTSChunk(token);
-        } else if (this.localTTS) {
-          // For TTSPipeline, we'd need sentence-level TTS
-          // This is simplified - in practice you'd want sentence buffering
-        } else {
-          // Server TTS - send text
-          // Server should handle this based on capabilities
-        }
+          if (isWebSpeechTTS(this.localTTS)) {
+            this.handleLocalTTSChunk(token);
+          } else if (this.localTTS) {
+            // For TTSPipeline, we'd need sentence-level TTS
+            // This is simplified - in practice you'd want sentence buffering
+          } else {
+            // Server TTS - send text
+            // Server should handle this based on capabilities
+          }
+        },
       });
 
-      this.emit('responseComplete', fullResponse);
+      this.emit('responseComplete', result.content);
 
       if (isWebSpeechTTS(this.localTTS)) {
         await this.flushLocalTTS();

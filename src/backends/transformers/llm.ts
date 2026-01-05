@@ -1,10 +1,21 @@
 /**
  * SmolLM LLM Pipeline (Transformers.js)
  * Isomorphic - works in browser (WebGPU) and Node.js
+ *
+ * Note: This backend does not support native tool calling.
+ * Tool support is handled at the VoicePipeline level via prompt injection.
  */
 
 import { pipeline } from '@huggingface/transformers';
-import type { LLMPipeline, TransformersLLMConfig, ProgressCallback, Message } from '../../types';
+import type {
+  LLMPipeline,
+  TransformersLLMConfig,
+  ProgressCallback,
+  Message,
+  LLMGenerateOptions,
+  LLMGenerateResult,
+  ToolMessage,
+} from '../../types';
 
 export class SmolLM implements LLMPipeline {
   private config: TransformersLLMConfig;
@@ -29,7 +40,13 @@ export class SmolLM implements LLMPipeline {
     console.log('LLM model loaded.');
   }
 
-  async generate(messages: Message[], onToken: (token: string) => void): Promise<string> {
+  supportsTools(): boolean {
+    // Transformers backend doesn't support tool calling natively
+    // Tools are handled via prompt injection at the VoicePipeline level
+    return false;
+  }
+
+  async generate(messages: Message[], options?: LLMGenerateOptions): Promise<LLMGenerateResult> {
     if (!this.pipe) {
       throw new Error('LLM pipeline not initialized');
     }
@@ -48,10 +65,13 @@ export class SmolLM implements LLMPipeline {
 
     // Stream character by character
     for (const char of response) {
-      onToken(char);
+      options?.onToken?.(char);
     }
 
-    return response;
+    return {
+      content: response,
+      finishReason: 'stop',
+    };
   }
 
   private formatChatPrompt(messages: Message[]): string {
@@ -64,6 +84,9 @@ export class SmolLM implements LLMPipeline {
         prompt += `<|im_start|>user\n${msg.content}<|im_end|>\n`;
       } else if (msg.role === 'assistant') {
         prompt += `<|im_start|>assistant\n${msg.content}<|im_end|>\n`;
+      } else if (msg.role === 'tool') {
+        const toolMsg = msg as ToolMessage;
+        prompt += `<|im_start|>tool\n[Tool Result: ${toolMsg.toolCallId}]\n${msg.content}<|im_end|>\n`;
       }
     }
 

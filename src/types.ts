@@ -2,14 +2,75 @@
  * Voice Pipeline Library - Type Definitions
  */
 
+// ============ Tool Types ============
+
+/**
+ * JSON Schema for tool parameters
+ */
+export interface ToolParameterSchema {
+  type: 'object';
+  properties: Record<string, {
+    type: string;
+    description?: string;
+    enum?: string[];
+  }>;
+  required?: string[];
+}
+
+/**
+ * Tool definition - describes a callable function
+ */
+export interface ToolDefinition {
+  name: string;
+  description: string;
+  parameters: ToolParameterSchema;
+}
+
+/**
+ * Registered tool with execute function
+ */
+export interface Tool extends ToolDefinition {
+  execute: (args: Record<string, unknown>) => Promise<unknown> | unknown;
+}
+
+/**
+ * Tool call request from LLM
+ */
+export interface ToolCall {
+  id: string;
+  name: string;
+  arguments: Record<string, unknown>;
+}
+
+/**
+ * Result of executing a tool
+ */
+export interface ToolResult {
+  toolCallId: string;
+  result: unknown;
+  error?: string;
+}
+
 // ============ Message Types ============
 
-export type MessageRole = 'system' | 'user' | 'assistant';
+export type MessageRole = 'system' | 'user' | 'assistant' | 'tool';
 
-export interface Message {
+export interface BaseMessage {
   role: MessageRole;
   content: string;
 }
+
+export interface ToolMessage extends BaseMessage {
+  role: 'tool';
+  toolCallId: string;
+}
+
+export interface AssistantMessage extends BaseMessage {
+  role: 'assistant';
+  toolCalls?: ToolCall[];
+}
+
+export type Message = BaseMessage | ToolMessage | AssistantMessage;
 
 // ============ Audio Types ============
 
@@ -104,10 +165,44 @@ export interface STTPipeline {
   isReady(): boolean;
 }
 
+/**
+ * LLM generation options
+ */
+export interface LLMGenerateOptions {
+  /** Tools available for the LLM to call */
+  tools?: ToolDefinition[];
+  /** Callback for streaming tokens */
+  onToken?: (token: string) => void;
+  /** Callback when tool calls are detected */
+  onToolCall?: (toolCall: ToolCall) => void;
+}
+
+/**
+ * LLM generation result
+ */
+export interface LLMGenerateResult {
+  /** Text content of the response */
+  content: string;
+  /** Tool calls requested by the LLM (if any) */
+  toolCalls?: ToolCall[];
+  /** Whether the response is complete or waiting for tool results */
+  finishReason: 'stop' | 'tool_calls';
+}
+
 export interface LLMPipeline {
   initialize(onProgress?: ProgressCallback): Promise<void>;
-  generate(messages: Message[], onToken: (token: string) => void): Promise<string>;
+  /**
+   * Generate a response from the LLM
+   * @param messages - Conversation history
+   * @param options - Generation options including tools and callbacks
+   * @returns Generation result with content and optional tool calls
+   */
+  generate(messages: Message[], options?: LLMGenerateOptions): Promise<LLMGenerateResult>;
+  /** @deprecated Use generate() with options.onToken instead */
+  generateLegacy?(messages: Message[], onToken: (token: string) => void): Promise<string>;
   isReady(): boolean;
+  /** Whether this backend supports native tool calling */
+  supportsTools?(): boolean;
 }
 
 export interface TTSPipeline {

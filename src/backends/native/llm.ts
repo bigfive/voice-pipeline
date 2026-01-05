@@ -4,11 +4,22 @@
  *
  * Uses llama-simple for clean single-shot completions.
  * The binaryPath should point to llama-simple (not llama-cli).
+ *
+ * Note: This backend does not support native tool calling.
+ * Tool support is handled at the VoicePipeline level via prompt injection.
  */
 
 import { spawn } from 'child_process';
 import { existsSync } from 'fs';
-import type { LLMPipeline, NativeLLMConfig, ProgressCallback, Message } from '../../types';
+import type {
+  LLMPipeline,
+  NativeLLMConfig,
+  ProgressCallback,
+  Message,
+  LLMGenerateOptions,
+  LLMGenerateResult,
+  ToolMessage,
+} from '../../types';
 
 export class NativeLlama implements LLMPipeline {
   private config: NativeLLMConfig;
@@ -32,7 +43,13 @@ export class NativeLlama implements LLMPipeline {
     console.log('Native LLM ready.');
   }
 
-  async generate(messages: Message[], onToken: (token: string) => void): Promise<string> {
+  supportsTools(): boolean {
+    // Native backend doesn't support tool calling natively
+    // Tools are handled via prompt injection at the VoicePipeline level
+    return false;
+  }
+
+  async generate(messages: Message[], options?: LLMGenerateOptions): Promise<LLMGenerateResult> {
     if (!this.ready) {
       throw new Error('LLM pipeline not initialized');
     }
@@ -54,7 +71,7 @@ export class NativeLlama implements LLMPipeline {
     // Prompt must be last (positional argument)
     args.push(prompt);
 
-    return new Promise((resolve, reject) => {
+    const content = await new Promise<string>((resolve, reject) => {
       const proc = spawn(this.config.binaryPath, args, {
         stdio: ['pipe', 'pipe', 'pipe'],
       });
@@ -76,9 +93,9 @@ export class NativeLlama implements LLMPipeline {
             : '';
           const newText = completionSoFar.slice(prevCompletion.length);
 
-          // Stream new characters, filtering out special tokens
+          // Stream new characters
           for (const char of newText) {
-            onToken(char);
+            options?.onToken?.(char);
           }
         }
       });
@@ -108,6 +125,11 @@ export class NativeLlama implements LLMPipeline {
 
       proc.on('error', reject);
     });
+
+    return {
+      content,
+      finishReason: 'stop',
+    };
   }
 
   private formatChatPrompt(messages: Message[]): string {
@@ -120,6 +142,9 @@ export class NativeLlama implements LLMPipeline {
         prompt += `<|im_start|>user\n${msg.content}<|im_end|>\n`;
       } else if (msg.role === 'assistant') {
         prompt += `<|im_start|>assistant\n${msg.content}<|im_end|>\n`;
+      } else if (msg.role === 'tool') {
+        const toolMsg = msg as ToolMessage;
+        prompt += `<|im_start|>tool\n[Tool Result: ${toolMsg.toolCallId}]\n${msg.content}<|im_end|>\n`;
       }
     }
 

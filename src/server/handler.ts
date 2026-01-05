@@ -162,6 +162,21 @@ export class PipelineSession {
           sampleRate: raw.sampleRate,
         });
       },
+      onToolCall: (toolCall) => {
+        enqueue({
+          type: 'tool_call',
+          toolCallId: toolCall.id,
+          name: toolCall.name,
+          arguments: toolCall.arguments,
+        });
+      },
+      onToolResult: (toolCallId, result) => {
+        enqueue({
+          type: 'tool_result',
+          toolCallId,
+          result,
+        });
+      },
       onComplete: () => {
         enqueue({ type: 'complete' });
         isComplete = true;

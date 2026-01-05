@@ -58,6 +58,25 @@ export type AudioResponseMessage = {
   sampleRate: number;
 };
 
+/**
+ * Sent when a tool call is being executed
+ */
+export type ToolCallMessage = {
+  type: 'tool_call';
+  toolCallId: string;
+  name: string;
+  arguments: Record<string, unknown>;
+};
+
+/**
+ * Sent when a tool call completes
+ */
+export type ToolResultMessage = {
+  type: 'tool_result';
+  toolCallId: string;
+  result: unknown;
+};
+
 export type CompleteMessage = {
   type: 'complete';
 };
@@ -71,6 +90,8 @@ export type ServerMessage =
   | TranscriptMessage
   | ResponseChunkMessage
   | AudioResponseMessage
+  | ToolCallMessage
+  | ToolResultMessage
   | CompleteMessage
   | ErrorMessage;
 
