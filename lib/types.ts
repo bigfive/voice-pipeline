@@ -118,3 +118,10 @@ export interface NativeTTSConfig {
   modelPath: string;
 }
 
+export interface SherpaOnnxTTSConfig {
+  binaryPath: string;
+  modelDir: string;  // Directory containing .onnx, tokens.txt, espeak-ng-data/
+  speakerId?: number;
+  speedScale?: number;
+}
+

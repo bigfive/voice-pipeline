@@ -1,4 +1,4 @@
 export { NativeWhisperPipeline } from './stt';
 export { NativeLlamaPipeline } from './llm';
-export { NativePiperPipeline } from './tts';
+export { NativeSherpaOnnxTTSPipeline, NativePiperPipeline } from './tts';
 
