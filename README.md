@@ -1,27 +1,52 @@
 # Voice Pipeline
 
-Isomorphic STT → LLM → TTS pipeline library for building AI voice agents and voice assistants. Run entirely in the browser, on a server, or mix-and-match with browser APIs handling some parts.
+A flexible TypeScript library for building AI voice assistants that actually work the way you need them to.
+
+## Why This Exists
+
+Building a voice assistant involves three steps: **Speech-to-Text** (STT), **Language Model** (LLM), and **Text-to-Speech** (TTS). Most solutions force you into one of two boxes:
+
+1. **Fully cloud-based** — send audio to APIs, get audio back. Simple, but adds latency, costs money per request, and requires internet.
+2. **Fully local** — run everything on-device. Private and offline, but heavyweight and limited to smaller models.
+
+**Voice Pipeline takes a different approach**: you choose where each component runs. Mix browser-native speech APIs with a server-side LLM. Run a small TTS model locally but transcribe on the server. Or go fully local when you need offline support. The architecture adapts to your requirements rather than the other way around.
+
+## How It Works
+
+From your perspective as a developer, there's one client SDK (`VoiceClient`) that handles everything:
+
+```
+User speaks → [STT] → [LLM] → [TTS] → User hears response
+              ↑         ↑        ↑
+          (browser   (browser  (browser
+           or         or        or
+           server)    server)   server)
+```
+
+You configure which components run locally and which run on a server. The client handles all the coordination automatically — sending audio or text over WebSocket when needed, managing the pipeline flow, and providing events for transcripts and streaming responses.
+
+**Three modes emerge naturally:**
+
+| Mode | When to Use | What Happens |
+|------|-------------|--------------|
+| **Local** | Offline apps, privacy-critical, demos | Everything runs in browser. No server needed. |
+| **Remote** | Production apps with powerful models | Client sends audio, server handles all processing, sends back audio. |
+| **Hybrid** | Low-latency with powerful LLMs | Browser handles instant STT/TTS, server runs the big model. |
+
+The same push-to-talk interface works regardless of mode:
+
+```typescript
+await client.connect();
+button.onmousedown = () => client.startRecording();
+button.onmouseup = () => client.stopRecording();
+```
+
+Events fire for transcripts, streaming response chunks, and status changes — your UI code stays the same whether you're running a 360M parameter model in-browser or hitting a server with a much larger one.
 
 ## Installation
 
 ```bash
 npm install voice-pipeline
-```
-
-## How It Works
-
-`VoiceClient` is a unified browser SDK that handles three modes:
-
-1. **Fully Local** - Everything runs in browser (WebSpeech + Transformers.js)
-2. **Fully Remote** - Everything runs on server (client sends audio, receives audio)
-3. **Hybrid** - Mix local and remote (e.g., browser STT/TTS + server LLM)
-
-```typescript
-import { createVoiceClient } from 'voice-pipeline/client';
-
-// Component provided → runs locally
-// Component is null → server handles it
-// All local → no server needed
 ```
 
 ## Quick Start
