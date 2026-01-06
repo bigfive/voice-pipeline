@@ -5,7 +5,7 @@
  * Client handles TTS with WebSpeech
  *
  * - STT: Native whisper.cpp (server)
- * - LLM: Transformers.js SmolLM (server)
+ * - LLM: Transformers.js TransformersLLM (server)
  * - TTS: WebSpeech API (browser)
  */
 

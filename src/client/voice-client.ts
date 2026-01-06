@@ -63,7 +63,7 @@ export interface VoiceClientConfig {
 
   /**
    * LLM backend - runs locally in browser
-   * - Provide an LLMPipeline (e.g., SmolLM) for local LLM
+   * - Provide an LLMPipeline (e.g., TransformersLLM) for local LLM
    * - Set to null to use server-side LLM (requires serverUrl)
    * @default null (server handles)
    */
@@ -1000,7 +1000,7 @@ export class VoiceClient {
  * // Fully local
  * const client = createVoiceClient({
  *   stt: new WhisperSTT({ model: '...' }),
- *   llm: new SmolLM({ model: '...' }),
+ *   llm: new TransformersLLM({ model: '...' }),
  *   tts: new WebSpeechTTS(),
  *   systemPrompt: 'You are a helpful assistant.',
  * });

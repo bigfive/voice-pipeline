@@ -1,0 +1,18 @@
+# Voice Pipeline - Cursor Rules
+
+## Build After Changes
+
+After making any changes to TypeScript files in `src/`, always rebuild the project:
+
+```bash
+npm run build
+```
+
+This is a TypeScript library that compiles to `dist/`. Changes won't take effect until rebuilt.
+
+## Project Structure
+
+- `src/` - TypeScript source files
+- `dist/` - Compiled JavaScript output
+- `examples/` - Example applications that use the library
+

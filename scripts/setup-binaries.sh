@@ -1,62 +1,23 @@
 #!/bin/bash
 #
-# Setup script - downloads models and binaries for native backends
-# Files are stored in ~/.cache/voice-pipeline/
+# Setup native binaries for voice-pipeline
+# Binaries are stored in ~/.cache/voice-pipeline/bin/
 #
-# Usage: npx voice-pipeline setup
+# Usage: npx voice-pipeline setup --binaries-only
 #
 
 set -e
 
 # Use global cache directory
 CACHE_DIR="${VOICE_PIPELINE_CACHE:-$HOME/.cache/voice-pipeline}"
-MODELS_DIR="$CACHE_DIR/models"
 BIN_DIR="$CACHE_DIR/bin"
 
-echo "Voice Pipeline Setup"
-echo "===================="
-echo "Cache directory: $CACHE_DIR"
+echo "Voice Pipeline - Binary Setup"
+echo "=============================="
+echo "Binary directory: $BIN_DIR"
 echo ""
 
-mkdir -p "$MODELS_DIR"
 mkdir -p "$BIN_DIR"
-
-# ============ Models ============
-
-cd "$MODELS_DIR"
-
-# Whisper model (whisper.cpp format - Large V3 Turbo quantized)
-echo "==> Downloading Whisper model (~850MB)..."
-if [ -f "whisper-large-v3-turbo-q8.bin" ]; then
-  echo "    Already exists, skipping."
-else
-  curl -L --progress-bar -o whisper-large-v3-turbo-q8.bin \
-    "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo-q8_0.bin"
-fi
-
-# LLM model (GGUF format)
-echo ""
-echo "==> Downloading SmolLM2 model (~1GB)..."
-if [ -f "smollm2-1.7b-instruct-q4_k_m.gguf" ]; then
-  echo "    Already exists, skipping."
-else
-  curl -L --progress-bar -o smollm2-1.7b-instruct-q4_k_m.gguf \
-    "https://huggingface.co/HuggingFaceTB/SmolLM2-1.7B-Instruct-GGUF/resolve/main/smollm2-1.7b-instruct-q4_k_m.gguf"
-fi
-
-# TTS model (sherpa-onnx compatible Piper model)
-echo ""
-echo "==> Downloading TTS model (~60MB)..."
-if [ -d "vits-piper-en_US-lessac-medium" ]; then
-  echo "    Already exists, skipping."
-else
-  curl -L --progress-bar -o vits-piper-en_US-lessac-medium.tar.bz2 \
-    "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_US-lessac-medium.tar.bz2"
-  tar -xjf vits-piper-en_US-lessac-medium.tar.bz2
-  rm vits-piper-en_US-lessac-medium.tar.bz2
-fi
-
-# ============ Binaries ============
 
 cd "$BIN_DIR"
 
@@ -65,7 +26,6 @@ OS="$(uname -s)"
 ARCH="$(uname -m)"
 
 # --- whisper.cpp ---
-echo ""
 echo "==> Setting up whisper-cli..."
 if [ -L "whisper-cli" ] || [ -f "whisper-cli" ]; then
   echo "    Already exists, skipping."
@@ -170,16 +130,12 @@ fi
 
 echo ""
 echo "============================================================"
-echo "Setup complete!"
+echo "Binary setup complete!"
 echo "============================================================"
 echo ""
-echo "Cache location: $CACHE_DIR"
+echo "Binaries location: $BIN_DIR"
 echo ""
-echo "Models:"
-ls -lh "$MODELS_DIR"
-echo ""
-echo "Binaries:"
-ls -lh "$BIN_DIR"
+ls -lh "$BIN_DIR" 2>/dev/null || true
 
 # Check for missing dependencies
 MISSING_BREW=""
@@ -191,11 +147,13 @@ if [ -n "$MISSING_BREW" ]; then
   echo "⚠️  Missing dependencies:"
   echo "  brew install$MISSING_BREW"
   echo ""
-  echo "Then re-run: npx voice-pipeline setup"
+  echo "Then re-run: npx voice-pipeline setup --binaries-only"
 else
   echo ""
-  echo "✅ All dependencies installed!"
-  echo ""
-  echo "You can customize the cache location with:"
-  echo "  export VOICE_PIPELINE_CACHE=/path/to/cache"
+  echo "✅ All binaries set up!"
 fi
+
+echo ""
+echo "You can customize the cache location with:"
+echo "  export VOICE_PIPELINE_CACHE=/path/to/cache"
+

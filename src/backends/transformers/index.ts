@@ -1,4 +1,4 @@
 export { WhisperSTT } from './stt';
-export { SmolLM } from './llm';
+export { TransformersLLM } from './llm';
 export { SpeechT5TTS } from './tts';
 

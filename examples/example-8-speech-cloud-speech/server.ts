@@ -39,12 +39,7 @@ const CONFIG = {
     maxTokens: 256,
     temperature: 0.7,
   },
-  systemPrompt: `You are a helpful voice assistant. Keep responses brief—1-2 sentences. Speak naturally.
-
-You have tools available to help answer questions:
-- Use get_current_time when asked about the time
-- Use get_weather when asked about weather in a location
-- Use roll_dice when asked to roll dice for games`,
+  systemPrompt: `You are a helpful voice assistant. Keep responses brief—1-2 sentences. Speak naturally.`,
 };
 
 // ============ Tool Definitions ============
@@ -176,13 +171,6 @@ async function main(): Promise<void> {
         }
 
         for await (const response of session.handle(message)) {
-          // Log tool calls for visibility
-          if (response.type === 'tool_call') {
-            console.log(`  🔧 Tool call: ${response.name}(${JSON.stringify(response.arguments)})`);
-          } else if (response.type === 'tool_result') {
-            console.log(`  ✓ Tool result: ${JSON.stringify(response.result)}`);
-          }
-
           ws.send(JSON.stringify(response));
         }
       } catch (err) {

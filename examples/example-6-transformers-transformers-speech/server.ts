@@ -3,14 +3,14 @@
  *
  * Hybrid mode: Server handles STT and LLM, client handles TTS
  * - STT: Transformers.js Whisper (server)
- * - LLM: Transformers.js SmolLM (server)
+ * - LLM: Transformers.js TransformersLLM (server)
  * - TTS: Client (WebSpeech) - server sends text only
  *
  * Run: npm run dev:transformers-speech
  */
 
 import { WebSocketServer } from 'ws';
-import { VoicePipeline, WhisperSTT, SmolLM } from 'voice-pipeline';
+import { VoicePipeline, WhisperSTT, TransformersLLM } from 'voice-pipeline';
 import { createPipelineHandler } from 'voice-pipeline/server';
 
 const PORT = 3103;
@@ -30,7 +30,7 @@ async function main(): Promise<void> {
   // STT + LLM pipeline - client handles TTS
   const pipeline = new VoicePipeline({
     stt: new WhisperSTT(CONFIG.stt),
-    llm: new SmolLM(CONFIG.llm),
+    llm: new TransformersLLM(CONFIG.llm),
     tts: null,  // Client does WebSpeech TTS
     systemPrompt: CONFIG.systemPrompt,
   });

@@ -3,7 +3,7 @@
  *
  * Server handles STT and LLM, browser handles TTS:
  * - STT: Whisper Transformers.js (server)
- * - LLM: SmolLM Transformers.js (server)
+ * - LLM: TransformersLLM Transformers.js (server)
  * - TTS: WebSpeech API (browser)
  *
  * Good when you want:

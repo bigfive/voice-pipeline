@@ -42,7 +42,7 @@ export interface VoicePipelineConfig {
   systemPrompt: string;
   /** Registered tools for function calling */
   tools?: Tool[];
-  /** 
+  /**
    * Filler phrases to say while executing tools.
    * Set to empty array to disable filler phrases.
    * @default ["Let me check that for you.", "One moment please.", "Let me look that up."]
@@ -102,11 +102,6 @@ export class VoicePipeline {
       description: tool.description,
       parameters: tool.parameters,
     });
-
-    // Update system prompt if we're using prompt-based tools
-    if (!this.llm.supportsTools?.()) {
-      this.history[0] = { role: 'system', content: this.buildSystemPrompt() };
-    }
   }
 
   /**
@@ -115,11 +110,6 @@ export class VoicePipeline {
   unregisterTool(name: string): void {
     this.tools.delete(name);
     this.toolDefinitions = this.toolDefinitions.filter(t => t.name !== name);
-
-    // Update system prompt
-    if (!this.llm.supportsTools?.()) {
-      this.history[0] = { role: 'system', content: this.buildSystemPrompt() };
-    }
   }
 
   /**
@@ -130,37 +120,10 @@ export class VoicePipeline {
   }
 
   /**
-   * Build system prompt, optionally including tool instructions for non-native backends
+   * Build system prompt (no tool injection - backends handle their own)
    */
   private buildSystemPrompt(): string {
-    // If LLM supports native tools or no tools registered, return base prompt
-    if (this.llm.supportsTools?.() || this.toolDefinitions.length === 0) {
-      return this.systemPrompt;
-    }
-
-    // For non-native backends, inject tool instructions into system prompt
-    const toolsJson = JSON.stringify(
-      this.toolDefinitions.map(t => ({
-        name: t.name,
-        description: t.description,
-        parameters: t.parameters,
-      })),
-      null,
-      2
-    );
-
-    return `${this.systemPrompt}
-
-You have access to tools. When you need to use a tool, respond with ONLY this JSON (no other text before or after):
-{"tool_call": {"name": "tool_name", "arguments": {...}}}
-
-Available tools:
-${toolsJson}
-
-IMPORTANT: 
-- If using a tool, respond ONLY with the JSON tool_call object, nothing else.
-- After you receive a tool result, provide your natural language response to the user.
-- Only use tools when necessary. For simple questions, respond directly.`;
+    return this.systemPrompt;
   }
 
   async initialize(onProgress?: ProgressCallback): Promise<void> {
@@ -256,11 +219,11 @@ IMPORTANT:
     // Tool execution loop - may iterate multiple times if LLM requests tools
     for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration++) {
       const isToolCheckTurn = hasTools && iteration === 0;
-      
+
       // For prompt-based tools on first turn, don't stream (need to check for tool call JSON)
       // For native tools, we can check tool_calls in result without streaming issues
       const shouldStream = !isToolCheckTurn || useNativeTools;
-      
+
       const result = await this.generateLLMResponse(
         callbacks,
         useNativeTools,
@@ -278,7 +241,7 @@ IMPORTANT:
           // Stream the content now (we buffered it)
           await this.streamResponse(result.content, callbacks);
         }
-        
+
         // Add assistant response to history
         this.history.push({ role: 'assistant', content: result.content });
         return;
@@ -288,7 +251,7 @@ IMPORTANT:
       if (this.toolFillerPhrases.length > 0) {
         const fillerPhrase = this.toolFillerPhrases[this.fillerPhraseIndex % this.toolFillerPhrases.length];
         this.fillerPhraseIndex++;
-        await this.streamResponse(fillerPhrase, callbacks);
+        await this.streamResponse(fillerPhrase + ' ', callbacks);
       }
 
       // Add assistant message with tool calls to history (don't include raw JSON for prompt-based)
@@ -367,12 +330,15 @@ IMPORTANT:
 
   /**
    * Generate LLM response, optionally with streaming
+   * Always passes tools to the backend - each backend handles its own prompt injection
    */
   private async generateLLMResponse(
     callbacks: VoicePipelineCallbacks,
     useNativeTools: boolean,
     shouldStream: boolean
   ): Promise<{ content: string; toolCalls?: ToolCall[] }> {
+    const tools = this.toolDefinitions.length > 0 ? this.toolDefinitions : undefined;
+
     // If streaming with TTS, use sentence-by-sentence streaming
     if (shouldStream && this.tts) {
       return this.generateWithStreamingTTS(callbacks, useNativeTools);
@@ -381,7 +347,7 @@ IMPORTANT:
     // If streaming without TTS, just stream tokens
     if (shouldStream) {
       const result = await this.llm.generate(this.history, {
-        tools: useNativeTools ? this.toolDefinitions : undefined,
+        tools,
         onToken: (token) => callbacks.onResponseChunk(token),
       });
       return { content: result.content, toolCalls: result.toolCalls };
@@ -389,7 +355,7 @@ IMPORTANT:
 
     // No streaming - just get the result (used for tool call detection)
     const result = await this.llm.generate(this.history, {
-      tools: useNativeTools ? this.toolDefinitions : undefined,
+      tools,
     });
     return { content: result.content, toolCalls: result.toolCalls };
   }
@@ -399,8 +365,9 @@ IMPORTANT:
    */
   private async generateWithStreamingTTS(
     callbacks: VoicePipelineCallbacks,
-    useNativeTools: boolean
+    _useNativeTools: boolean
   ): Promise<{ content: string; toolCalls?: ToolCall[] }> {
+    const tools = this.toolDefinitions.length > 0 ? this.toolDefinitions : undefined;
     let sentenceBuffer = '';
     const sentenceEnders = /[.!?]/;
     const playableQueue = new Map<number, AudioPlayable>();
@@ -433,11 +400,11 @@ IMPORTANT:
     };
 
     const result = await this.llm.generate(this.history, {
-      tools: useNativeTools ? this.toolDefinitions : undefined,
+      tools,
       onToken: (token) => {
         callbacks.onResponseChunk(token);
         sentenceBuffer += token;
-        
+
         const match = sentenceBuffer.match(sentenceEnders);
         if (match && match.index !== undefined) {
           const sentence = sentenceBuffer.slice(0, match.index + 1).trim();

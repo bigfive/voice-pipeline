@@ -3,7 +3,7 @@
  *
  * Hybrid mode: Client handles STT and TTS, server only does LLM
  * - STT: Client (WebSpeech) - server receives text
- * - LLM: Native llama.cpp with tool calling (prompt-based)
+ * - LLM: Native llama.cpp with tool calling (grammar-constrained)
  * - TTS: Client (WebSpeech) - server sends text only
  *
  * Demonstrates tool/function calling with native LLM:
@@ -11,32 +11,30 @@
  * - get_weather: Returns mock weather for a location
  * - roll_dice: Rolls dice (e.g., "2d6")
  *
- * Note: Native LLM uses prompt-based tool calling since llama.cpp
- * doesn't have native function calling support.
+ * Native LLM uses GBNF grammar to guarantee valid JSON tool calls.
  *
  * Run: npm run dev:speech-native
  */
 
 import { WebSocketServer } from 'ws';
 import { VoicePipeline, Tool } from 'voice-pipeline';
-import { NativeLlama, defaultPaths, getCacheDir } from 'voice-pipeline/native';
+import { NativeLlama, getBinaryPath, getModelPath, getCacheDir } from 'voice-pipeline/native';
 import { createPipelineHandler } from 'voice-pipeline/server';
 
 const PORT = 3104;
 
+// Model paths - must match models.json in this directory
+// Run: npx voice-pipeline setup examples/example-5-speech-native-speech/models.json
+// Run: npx voice-pipeline setup --binaries-only
 const CONFIG = {
   llm: {
-    ...defaultPaths.llama,
-    maxNewTokens: 200, // Increased for tool calling JSON
+    binaryPath: getBinaryPath('llama-completion'),
+    modelPath: getModelPath('qwen3-14b-q4_k_m.gguf'),
+    maxNewTokens: 256,
     temperature: 0.7,
-    gpuLayers: 0,
+    gpuLayers: 0,  // Set higher if you have GPU memory (e.g., 35 for ~16GB VRAM)
   },
-  systemPrompt: `You are a helpful voice assistant. Keep responses brief—1-2 sentences. Speak naturally.
-
-You have tools available to help answer questions:
-- Use get_current_time when asked about the time
-- Use get_weather when asked about weather in a location
-- Use roll_dice when asked to roll dice for games`,
+  systemPrompt: `You are a helpful voice assistant. Keep responses brief—1-2 sentences. Speak naturally.`,
 };
 
 // ============ Tool Definitions ============
@@ -135,7 +133,7 @@ async function main(): Promise<void> {
   console.log(`  Llama: ${CONFIG.llm.binaryPath}`);
   console.log(`  STT:   Client handles (WebSpeech)`);
   console.log(`  TTS:   Client handles (WebSpeech)`);
-  console.log(`  Tools: ${tools.map(t => t.name).join(', ')} (prompt-based)`);
+  console.log(`  Tools: ${tools.map(t => t.name).join(', ')}`);
 
   // LLM-only pipeline with tools - client handles STT and TTS
   const pipeline = new VoicePipeline({
@@ -169,13 +167,6 @@ async function main(): Promise<void> {
         }
 
         for await (const response of session.handle(message)) {
-          // Log tool calls for visibility
-          if (response.type === 'tool_call') {
-            console.log(`  🔧 Tool call: ${response.name}(${JSON.stringify(response.arguments)})`);
-          } else if (response.type === 'tool_result') {
-            console.log(`  ✓ Tool result: ${JSON.stringify(response.result)}`);
-          }
-
           ws.send(JSON.stringify(response));
         }
       } catch (err) {
@@ -196,7 +187,7 @@ async function main(): Promise<void> {
   console.log('  - "What\'s the weather in Tokyo?"');
   console.log('  - "Roll 2d6 for me"');
   console.log('');
-  console.log('Note: Native LLM uses prompt-based tool calling.');
+  console.log('Note: Native LLM uses grammar-constrained tool calling for reliable JSON output.');
 }
 
 main().catch(console.error);

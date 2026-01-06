@@ -3,7 +3,7 @@
  *
  * Fully remote mode - server handles everything:
  * - STT: Whisper (server)
- * - LLM: SmolLM (server)
+ * - LLM: TransformersLLM (server)
  * - TTS: SpeechT5 (server)
  */
 

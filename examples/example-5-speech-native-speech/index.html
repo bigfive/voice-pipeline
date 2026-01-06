@@ -74,14 +74,54 @@
       font-size: 0.85rem;
       color: #a1a1aa;
     }
-    .message.tool-call, .message.tool-result {
-      background: rgba(251, 191, 36, 0.1);
-      border-left: 3px solid #fbbf24;
-      font-size: 0.85rem;
-      padding: 8px 12px;
+    /* Tool details container - nested within assistant message */
+    .tool-details {
+      margin-top: 10px;
+      padding: 10px 12px;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 6px;
+      border-left: 2px solid #fbbf24;
+      font-size: 0.8rem;
     }
-    .message.tool-call .tool-icon, .message.tool-result .tool-icon {
-      margin-right: 6px;
+    .tool-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
+      padding: 4px 0;
+      color: #a1a1aa;
+    }
+    .tool-item + .tool-item {
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+      margin-top: 4px;
+      padding-top: 8px;
+    }
+    .tool-icon {
+      flex-shrink: 0;
+    }
+    .tool-label {
+      color: #71717a;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+    .tool-name {
+      color: #fbbf24;
+      font-weight: 500;
+    }
+    .tool-args, .tool-result-code {
+      display: block;
+      margin-top: 4px;
+      margin-left: 22px;
+      padding: 4px 8px;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 4px;
+      font-family: 'SF Mono', Monaco, monospace;
+      font-size: 0.75rem;
+      word-break: break-all;
+      color: #a1a1aa;
+    }
+    .tool-result .tool-icon {
+      color: #34d399;
     }
     .message code {
       display: block;

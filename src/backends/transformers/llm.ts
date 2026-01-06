@@ -1,9 +1,13 @@
 /**
- * SmolLM LLM Pipeline (Transformers.js)
+ * Transformers.js LLM Pipeline
  * Isomorphic - works in browser (WebGPU) and Node.js
  *
+ * Supports any causal LLM model from Hugging Face that works with Transformers.js,
+ * including SmolLM, Phi, Qwen, Gemma, and others.
+ *
  * Note: This backend does not support native tool calling.
- * Tool support is handled at the VoicePipeline level via prompt injection.
+ * When tools are provided, it injects instructions into the system prompt
+ * for JSON-based tool calling, parsed by VoicePipeline.
  */
 
 import { pipeline } from '@huggingface/transformers';
@@ -15,16 +19,20 @@ import type {
   LLMGenerateOptions,
   LLMGenerateResult,
   ToolMessage,
+  ToolDefinition,
 } from '../../types';
+import { LLMLogger, LLMConversationTracker, type TrackerMessage } from '../../services';
 
-export class SmolLM implements LLMPipeline {
+export class TransformersLLM implements LLMPipeline {
   private config: TransformersLLMConfig;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private pipe: any = null;
   private ready = false;
+  private tracker: LLMConversationTracker;
 
   constructor(config: TransformersLLMConfig) {
     this.config = config;
+    this.tracker = new LLMConversationTracker(new LLMLogger());
   }
 
   async initialize(onProgress?: ProgressCallback): Promise<void> {
@@ -51,7 +59,10 @@ export class SmolLM implements LLMPipeline {
       throw new Error('LLM pipeline not initialized');
     }
 
-    const prompt = this.formatChatPrompt(messages);
+    // Log input messages
+    this.tracker.logInput(messages as TrackerMessage[]);
+
+    const prompt = this.formatChatPrompt(messages, options?.tools);
 
     const result = await this.pipe(prompt, {
       max_new_tokens: this.config.maxNewTokens,
@@ -62,6 +73,9 @@ export class SmolLM implements LLMPipeline {
 
     let response = result[0]?.generated_text?.trim() || '';
     response = response.replace(/<\|im_end\|>.*$/s, '').trim();
+
+    // Log the response
+    this.tracker.logOutput(response);
 
     // Stream character by character
     for (const char of response) {
@@ -74,12 +88,44 @@ export class SmolLM implements LLMPipeline {
     };
   }
 
-  private formatChatPrompt(messages: Message[]): string {
+  /**
+   * Build tool instructions to inject into system prompt
+   */
+  private buildToolInstructions(tools: ToolDefinition[]): string {
+    const toolsJson = JSON.stringify(
+      tools.map(t => ({
+        name: t.name,
+        description: t.description,
+        parameters: t.parameters,
+      })),
+      null,
+      2
+    );
+
+    return `
+
+You have access to tools. When you need to use a tool, respond with ONLY this JSON (no other text before or after):
+{"tool_call": {"name": "tool_name", "arguments": {...}}}
+
+Available tools:
+${toolsJson}
+
+IMPORTANT:
+- If using a tool, respond ONLY with the JSON tool_call object, nothing else.
+- After you receive a tool result, provide your natural language response to the user.
+- Only use tools when necessary. For simple questions, respond directly.`;
+  }
+
+  private formatChatPrompt(messages: Message[], tools?: ToolDefinition[]): string {
     let prompt = '';
 
     for (const msg of messages) {
       if (msg.role === 'system') {
-        prompt += `<|im_start|>system\n${msg.content}<|im_end|>\n`;
+        // Inject tool instructions into system message if tools are provided
+        const content = tools && tools.length > 0
+          ? msg.content + this.buildToolInstructions(tools)
+          : msg.content;
+        prompt += `<|im_start|>system\n${content}<|im_end|>\n`;
       } else if (msg.role === 'user') {
         prompt += `<|im_start|>user\n${msg.content}<|im_end|>\n`;
       } else if (msg.role === 'assistant') {

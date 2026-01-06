@@ -42,8 +42,8 @@ Naming convention: `{stt}-{llm}-{tts}` where each component is:
 | Option | STT | LLM | TTS |
 |--------|-----|-----|-----|
 | **native** | whisper.cpp (server) | llama.cpp (server) | sherpa-onnx (server) |
-| **transformers** | Whisper Transformers.js (server) | SmolLM/Phi3 Transformers.js (server) | SpeechT5 Transformers.js (server) |
-| **browser** | Whisper Transformers.js (browser) | SmolLM/Phi3 Transformers.js (browser) | ⚠️ No good model yet |
+| **transformers** | Whisper Transformers.js (server) | TransformersLLM/Phi3 Transformers.js (server) | SpeechT5 Transformers.js (server) |
+| **browser** | Whisper Transformers.js (browser) | TransformersLLM/Phi3 Transformers.js (browser) | ⚠️ No good model yet |
 | **cloud** | ❌ N/A | OpenAI/Ollama/vLLM (server) | ❌ N/A |
 | **speech** | WebSpeech API (browser) | ❌ N/A | WebSpeech API (browser) |
 

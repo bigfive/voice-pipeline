@@ -3,22 +3,26 @@
  *
  * Demonstrates mixing backend types:
  * - STT: Native whisper.cpp (fast, high-quality)
- * - LLM: Transformers.js SmolLM (easier to set up)
+ * - LLM: Transformers.js TransformersLLM (easier to set up)
  * - TTS: None (client handles with WebSpeech)
  *
  * Run: npm run dev:native-transformers
  */
 
 import { WebSocketServer } from 'ws';
-import { VoicePipeline, SmolLM } from 'voice-pipeline';
-import { NativeWhisperSTT, defaultPaths, getCacheDir } from 'voice-pipeline/native';
+import { VoicePipeline, TransformersLLM } from 'voice-pipeline';
+import { NativeWhisperSTT, getBinaryPath, getModelPath, getCacheDir } from 'voice-pipeline/native';
 import { createPipelineHandler } from 'voice-pipeline/server';
 
 const PORT = 3102;
 
+// Model paths - must match models.json in this directory
+// Run: npx voice-pipeline setup examples/example-7-native-transformers-speech/models.json
+// Run: npx voice-pipeline setup --binaries-only
 const CONFIG = {
   stt: {
-    ...defaultPaths.whisper,
+    binaryPath: getBinaryPath('whisper-cli'),
+    modelPath: getModelPath('whisper-large-v3-turbo-q8.bin'),
     language: 'en',
   },
   llm: {
@@ -40,7 +44,7 @@ async function main(): Promise<void> {
   // Mixed pipeline: native STT + Transformers.js LLM + no TTS (client handles)
   const pipeline = new VoicePipeline({
     stt: new NativeWhisperSTT(CONFIG.stt),
-    llm: new SmolLM(CONFIG.llm),
+    llm: new TransformersLLM(CONFIG.llm),
     tts: null, // Client handles TTS with WebSpeech
     systemPrompt: CONFIG.systemPrompt,
   });
@@ -86,7 +90,7 @@ async function main(): Promise<void> {
   console.log(`Server running on ws://localhost:${PORT}`);
   console.log('');
   console.log('This example demonstrates mixing native + Transformers.js backends.');
-  console.log('Client sends audio → whisper.cpp transcribes → SmolLM responds → Client speaks with WebSpeech');
+  console.log('Client sends audio → whisper.cpp transcribes → TransformersLLM responds → Client speaks with WebSpeech');
 }
 
 main().catch(console.error);

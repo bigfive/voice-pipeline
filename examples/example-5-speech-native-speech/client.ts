@@ -64,18 +64,52 @@ const clearBtn = document.getElementById('clearBtn') as HTMLButtonElement;
 
 let currentAssistantEl: HTMLElement | null = null;
 let currentAssistantText = '';
+let currentToolDetailsEl: HTMLElement | null = null;
 
 function addMessage(role: 'user' | 'assistant', text: string): HTMLElement {
   const div = document.createElement('div');
   div.className = `message ${role}`;
-  div.innerHTML = `<strong>${role === 'user' ? 'You' : 'Assistant'}:</strong> <span>${text}</span>`;
+  div.innerHTML = `<strong>${role === 'user' ? 'You' : 'Assistant'}:</strong> <span class="text">${text}</span>`;
   conversation.appendChild(div);
   conversation.scrollTop = conversation.scrollHeight;
   return div;
 }
 
 function updateMessage(el: HTMLElement, text: string): void {
-  el.querySelector('span')!.textContent = text;
+  el.querySelector('.text')!.textContent = text;
+  conversation.scrollTop = conversation.scrollHeight;
+}
+
+function addToolDetails(el: HTMLElement): HTMLElement {
+  // Create or get the tool details container within the assistant message
+  let details = el.querySelector('.tool-details') as HTMLElement;
+  if (!details) {
+    details = document.createElement('div');
+    details.className = 'tool-details';
+    el.appendChild(details);
+  }
+  return details;
+}
+
+function addToolCall(el: HTMLElement, toolName: string, args: Record<string, unknown>): HTMLElement {
+  const details = addToolDetails(el);
+  const toolDiv = document.createElement('div');
+  toolDiv.className = 'tool-item';
+  toolDiv.innerHTML = `<span class="tool-icon">🔧</span> <span class="tool-label">Using:</span> <span class="tool-name">${toolName}</span>`;
+  if (Object.keys(args).length > 0) {
+    toolDiv.innerHTML += `<code class="tool-args">${JSON.stringify(args)}</code>`;
+  }
+  details.appendChild(toolDiv);
+  conversation.scrollTop = conversation.scrollHeight;
+  return toolDiv;
+}
+
+function addToolResult(el: HTMLElement, result: unknown): void {
+  const details = addToolDetails(el);
+  const resultDiv = document.createElement('div');
+  resultDiv.className = 'tool-item tool-result';
+  resultDiv.innerHTML = `<span class="tool-icon">✓</span> <span class="tool-label">Result:</span> <code class="tool-result-code">${JSON.stringify(result)}</code>`;
+  details.appendChild(resultDiv);
   conversation.scrollTop = conversation.scrollHeight;
 }
 
@@ -119,24 +153,17 @@ client.on('responseComplete', () => {
   currentAssistantEl = null;
 });
 
-// Tool call events - show when the assistant uses tools
+// Tool call events - show as grouped details within the assistant message
 client.on('toolCall', (toolCall) => {
-  const div = document.createElement('div');
-  div.className = 'message tool-call';
-  div.innerHTML = `<span class="tool-icon">🔧</span> <strong>Using tool:</strong> ${toolCall.name}`;
-  if (Object.keys(toolCall.arguments).length > 0) {
-    div.innerHTML += `<code>${JSON.stringify(toolCall.arguments)}</code>`;
+  if (currentAssistantEl) {
+    addToolCall(currentAssistantEl, toolCall.name, toolCall.arguments);
   }
-  conversation.appendChild(div);
-  conversation.scrollTop = conversation.scrollHeight;
 });
 
-client.on('toolResult', (toolCallId, result) => {
-  const div = document.createElement('div');
-  div.className = 'message tool-result';
-  div.innerHTML = `<span class="tool-icon">✓</span> <strong>Result:</strong> <code>${JSON.stringify(result)}</code>`;
-  conversation.appendChild(div);
-  conversation.scrollTop = conversation.scrollHeight;
+client.on('toolResult', (_toolCallId, result) => {
+  if (currentAssistantEl) {
+    addToolResult(currentAssistantEl, result);
+  }
 });
 
 client.on('error', (err) => {

@@ -30,26 +30,26 @@ export function getBinDir(): string {
 }
 
 /**
- * Default paths for native backends.
- * Use these when configuring NativeWhisperSTT, NativeLlama, NativeSherpaOnnxTTS.
+ * Get the full path to a model file in the cache.
+ * @param filename - The model filename (e.g., 'whisper-large-v3-turbo-q8.bin')
  */
-export const defaultPaths = {
-  get whisper() {
-    return {
-      binaryPath: join(getBinDir(), 'whisper-cli'),
-      modelPath: join(getModelsDir(), 'whisper-large-v3-turbo-q8.bin'),
-    };
-  },
-  get llama() {
-    return {
-      binaryPath: join(getBinDir(), 'llama-simple'),
-      modelPath: join(getModelsDir(), 'smollm2-1.7b-instruct-q4_k_m.gguf'),
-    };
-  },
-  get sherpaOnnxTts() {
-    return {
-      binaryPath: join(getBinDir(), 'sherpa-onnx-offline-tts'),
-      modelDir: join(getModelsDir(), 'vits-piper-en_US-lessac-medium'),
-    };
-  },
+export function getModelPath(filename: string): string {
+  return join(getModelsDir(), filename);
+}
+
+/**
+ * Get the full path to a binary in the cache.
+ * @param name - The binary name (e.g., 'whisper-cli', 'llama-completion')
+ */
+export function getBinaryPath(name: string): string {
+  return join(getBinDir(), name);
+}
+
+/**
+ * Default binary names for native backends.
+ */
+export const defaultBinaries = {
+  whisperCli: 'whisper-cli',
+  llamaCompletion: 'llama-completion',
+  sherpaOnnxTts: 'sherpa-onnx-offline-tts',
 };

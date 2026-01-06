@@ -7,26 +7,30 @@
 
 import { WebSocketServer } from 'ws';
 import { VoicePipeline } from 'voice-pipeline';
-import { NativeWhisperSTT, NativeLlama, NativeSherpaOnnxTTS, defaultPaths, getCacheDir } from 'voice-pipeline/native';
+import { NativeWhisperSTT, NativeLlama, NativeSherpaOnnxTTS, getBinaryPath, getModelPath, getCacheDir } from 'voice-pipeline/native';
 import { createPipelineHandler } from 'voice-pipeline/server';
 
 const PORT = 3101;
 
-// Use default paths from ~/.cache/voice-pipeline/
-// Run `npx voice-pipeline setup` to download models and binaries
+// Model paths - must match models.json in this directory
+// Run: npx voice-pipeline setup examples/example-4-native-native-native/models.json
+// Run: npx voice-pipeline setup --binaries-only
 const CONFIG = {
   stt: {
-    ...defaultPaths.whisper,
+    binaryPath: getBinaryPath('whisper-cli'),
+    modelPath: getModelPath('whisper-large-v3-turbo-q8.bin'),
     language: 'en',
   },
   llm: {
-    ...defaultPaths.llama,
+    binaryPath: getBinaryPath('llama-completion'),
+    modelPath: getModelPath('smollm2-1.7b-instruct-q4_k_m.gguf'),
     maxNewTokens: 140,
     temperature: 0.7,
     gpuLayers: 0,
   },
   tts: {
-    ...defaultPaths.sherpaOnnxTts,
+    binaryPath: getBinaryPath('sherpa-onnx-offline-tts'),
+    modelDir: getModelPath('vits-piper-en_US-lessac-medium'),
   },
   systemPrompt: 'You are a helpful voice assistant. Keep responses brief—1-2 sentences. Speak naturally.',
 };

@@ -18,6 +18,7 @@ import type {
   ToolMessage,
   AssistantMessage,
 } from '../../types';
+import { LLMLogger, LLMConversationTracker, type TrackerMessage } from '../../services';
 
 interface OpenAIMessage {
   role: string;
@@ -42,6 +43,7 @@ interface OpenAITool {
 export class CloudLLM implements LLMPipeline {
   private config: CloudLLMConfig;
   private ready = false;
+  private tracker: LLMConversationTracker;
 
   constructor(config: CloudLLMConfig) {
     this.config = {
@@ -49,6 +51,7 @@ export class CloudLLM implements LLMPipeline {
       temperature: 0.7,
       ...config,
     };
+    this.tracker = new LLMConversationTracker(new LLMLogger());
   }
 
   async initialize(_onProgress?: ProgressCallback): Promise<void> {
@@ -86,6 +89,9 @@ export class CloudLLM implements LLMPipeline {
     if (!this.ready) {
       throw new Error('LLM pipeline not initialized');
     }
+
+    // Log the input messages
+    this.tracker.logInput(messages as TrackerMessage[]);
 
     const url = `${this.config.baseUrl}/chat/completions`;
 
@@ -220,6 +226,12 @@ export class CloudLLM implements LLMPipeline {
         options?.onToolCall?.(toolCall);
       }
     }
+
+    // Log the response
+    this.tracker.logOutput(
+      fullContent,
+      resultToolCalls.length > 0 ? resultToolCalls : undefined
+    );
 
     return {
       content: fullContent,

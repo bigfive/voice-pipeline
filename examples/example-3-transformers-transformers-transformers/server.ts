@@ -6,7 +6,7 @@
  */
 
 import { WebSocketServer } from 'ws';
-import { VoicePipeline, WhisperSTT, SmolLM, SpeechT5TTS } from 'voice-pipeline';
+import { VoicePipeline, WhisperSTT, TransformersLLM, SpeechT5TTS } from 'voice-pipeline';
 import { createPipelineHandler } from 'voice-pipeline/server';
 
 const PORT = 3100;
@@ -23,7 +23,7 @@ async function main(): Promise<void> {
 
   const pipeline = new VoicePipeline({
     stt: new WhisperSTT(CONFIG.stt),
-    llm: new SmolLM(CONFIG.llm),
+    llm: new TransformersLLM(CONFIG.llm),
     tts: new SpeechT5TTS(CONFIG.tts),
     systemPrompt: CONFIG.systemPrompt,
   });

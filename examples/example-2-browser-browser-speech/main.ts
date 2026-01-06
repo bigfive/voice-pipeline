@@ -3,7 +3,7 @@
  *
  * Everything runs in the browser - no server needed!
  * - STT: Whisper (Transformers.js via WebGPU)
- * - LLM: SmolLM (Transformers.js via WebGPU)
+ * - LLM: TransformersLLM (Transformers.js via WebGPU)
  * - TTS: WebSpeech API (browser native)
  *
  * Higher quality STT than WebSpeech, but requires model download.
@@ -11,7 +11,7 @@
  */
 
 import { VoiceClient, createVoiceClient, WebSpeechTTS } from 'voice-pipeline/client';
-import { WhisperSTT, SmolLM } from 'voice-pipeline';
+import { WhisperSTT, TransformersLLM } from 'voice-pipeline';
 
 // ============ Browser Support Check ============
 
@@ -50,7 +50,7 @@ const client = createVoiceClient({
     model: 'Xenova/whisper-tiny.en',
     dtype: 'q8',
   }),
-  llm: new SmolLM({
+  llm: new TransformersLLM({
     model: 'HuggingFaceTB/SmolLM2-360M-Instruct',
     dtype: 'q4',
     maxNewTokens: 140,

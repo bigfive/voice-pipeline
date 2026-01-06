@@ -3,7 +3,7 @@
  *
  * Everything runs in the browser - no server needed!
  * - STT: WebSpeech API (browser native)
- * - LLM: Transformers.js (SmolLM via WebGPU)
+ * - LLM: Transformers.js (TransformersLLM via WebGPU)
  * - TTS: WebSpeech API (browser native)
  *
  * This is the simplest setup - no models to download for STT/TTS.
@@ -13,7 +13,7 @@
  */
 
 import { VoiceClient, createVoiceClient, WebSpeechSTT, WebSpeechTTS } from 'voice-pipeline/client';
-import { SmolLM } from 'voice-pipeline';
+import { TransformersLLM } from 'voice-pipeline';
 
 // ============ Browser Support Check ============
 
@@ -45,7 +45,7 @@ if (!support.webSpeechSTT) {
 const client = createVoiceClient({
   // All components are local - no server needed!
   stt: new WebSpeechSTT({ language: 'en-US' }),
-  llm: new SmolLM({
+  llm: new TransformersLLM({
     model: 'HuggingFaceTB/SmolLM2-360M-Instruct',
     dtype: 'q4',
     maxNewTokens: 140,

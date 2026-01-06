@@ -5,7 +5,7 @@ Build voice assistants without the plumbing. One SDK, any backend, same interfac
 ```typescript
 const client = createVoiceClient({
   stt: new WebSpeechSTT(),
-  llm: new SmolLM({ model: 'HuggingFaceTB/SmolLM2-360M-Instruct' }),
+  llm: new TransformersLLM({ model: 'HuggingFaceTB/SmolLM2-360M-Instruct' }),
   tts: new WebSpeechTTS(),
   systemPrompt: 'You are a helpful assistant.',
 });
@@ -46,11 +46,11 @@ Everything runs in the browser - no server required!
 
 ```typescript
 import { createVoiceClient, WebSpeechSTT, WebSpeechTTS } from 'voice-pipeline/client';
-import { SmolLM } from 'voice-pipeline';
+import { TransformersLLM } from 'voice-pipeline';
 
 const client = createVoiceClient({
   stt: new WebSpeechSTT({ language: 'en-US' }),
-  llm: new SmolLM({
+  llm: new TransformersLLM({
     model: 'HuggingFaceTB/SmolLM2-360M-Instruct',
     dtype: 'q4',
     maxNewTokens: 140,
@@ -89,12 +89,12 @@ const client = createVoiceClient({
 **Server:**
 ```typescript
 import { WebSocketServer } from 'ws';
-import { VoicePipeline, WhisperSTT, SmolLM, SpeechT5TTS } from 'voice-pipeline';
+import { VoicePipeline, WhisperSTT, TransformersLLM, SpeechT5TTS } from 'voice-pipeline';
 import { createPipelineHandler } from 'voice-pipeline/server';
 
 const pipeline = new VoicePipeline({
   stt: new WhisperSTT({ model: 'Xenova/whisper-small', dtype: 'q8' }),
-  llm: new SmolLM({ model: 'HuggingFaceTB/SmolLM2-1.7B-Instruct', dtype: 'q4' }),
+  llm: new TransformersLLM({ model: 'HuggingFaceTB/SmolLM2-1.7B-Instruct', dtype: 'q4' }),
   tts: new SpeechT5TTS({ model: 'Xenova/speecht5_tts', dtype: 'fp16', speakerEmbeddings: '...' }),
   systemPrompt: 'You are a helpful voice assistant.',
 });
@@ -188,7 +188,7 @@ const pipeline = new VoicePipeline({
 
 ```typescript
 // Main library - pipeline + Transformers.js backends
-import { VoicePipeline, WhisperSTT, SmolLM, SpeechT5TTS } from 'voice-pipeline';
+import { VoicePipeline, WhisperSTT, TransformersLLM, SpeechT5TTS } from 'voice-pipeline';
 
 // Client SDK - unified browser interface
 import {
@@ -287,6 +287,116 @@ pipeline.hasTTS();
 pipeline.clearHistory();
 ```
 
+### Tools (Function Calling)
+
+Give your voice assistant the ability to take actions — check the weather, control smart home devices, query databases, or call any API.
+
+**Defining a tool:**
+
+```typescript
+import { Tool } from 'voice-pipeline';
+
+const getWeather: Tool = {
+  name: 'get_weather',
+  description: 'Get the current weather for a location',
+  parameters: {
+    type: 'object',
+    properties: {
+      location: {
+        type: 'string',
+        description: 'City name, e.g., "San Francisco"',
+      },
+    },
+    required: ['location'],
+  },
+  execute: async (args) => {
+    const location = args.location as string;
+    // Call your weather API here
+    return { location, temperature: '72°F', condition: 'sunny' };
+  },
+};
+```
+
+**Using tools with VoicePipeline:**
+
+```typescript
+const pipeline = new VoicePipeline({
+  llm: new CloudLLM({ ... }),
+  systemPrompt: 'You are a helpful assistant.',
+  tools: [getWeather, getTime, rollDice],
+});
+```
+
+**Tool events** (via callbacks):
+
+```typescript
+await pipeline.processText('What\'s the weather in Tokyo?', {
+  onToolCall: (call) => console.log(`Calling ${call.name}...`),
+  onToolResult: (id, result) => console.log('Result:', result),
+  onResponseChunk: (chunk) => console.log(chunk),
+  // ... other callbacks
+});
+```
+
+**Backend support:**
+
+All LLM backends support tools with the same API:
+
+| Backend | How Tools Work |
+|---------|----------------|
+| `CloudLLM` | Native OpenAI function calling API |
+| `NativeLlama` | Prompt injection (instructions added to system prompt) |
+| `TransformersLLM` (Transformers.js) | Prompt injection (instructions added to system prompt) |
+
+You don't need to do anything different — just pass `tools` and the backend handles it.
+
+**Complete example:**
+
+```typescript
+import { VoicePipeline, Tool } from 'voice-pipeline';
+import { CloudLLM } from 'voice-pipeline/cloud';
+
+const tools: Tool[] = [
+  {
+    name: 'get_current_time',
+    description: 'Get the current date and time',
+    parameters: { type: 'object', properties: {} },
+    execute: async () => ({
+      time: new Date().toLocaleTimeString(),
+      date: new Date().toLocaleDateString(),
+    }),
+  },
+  {
+    name: 'roll_dice',
+    description: 'Roll dice, e.g., "2d6" for two six-sided dice',
+    parameters: {
+      type: 'object',
+      properties: {
+        notation: { type: 'string', description: 'Dice notation like "2d6"' },
+      },
+      required: ['notation'],
+    },
+    execute: async (args) => {
+      const [num, sides] = (args.notation as string).split('d').map(Number);
+      const rolls = Array.from({ length: num }, () => Math.floor(Math.random() * sides) + 1);
+      return { rolls, total: rolls.reduce((a, b) => a + b, 0) };
+    },
+  },
+];
+
+const pipeline = new VoicePipeline({
+  llm: new CloudLLM({
+    baseUrl: 'https://api.openai.com/v1',
+    apiKey: process.env.OPENAI_API_KEY,
+    model: 'gpt-4o',
+  }),
+  systemPrompt: 'You are a helpful assistant. Use tools when needed.',
+  tools,
+});
+```
+
+See `examples/example-5` and `examples/example-8` for full working examples with tools.
+
 ## Examples
 
 See the [examples/](./examples/) directory for 9 interactive examples covering all configuration modes, including cloud LLM integration.
@@ -327,7 +437,7 @@ ollama pull llama3.2
 voice-pipeline/
 ├── src/
 │   ├── backends/
-│   │   ├── transformers/     # WhisperSTT, SmolLM, SpeechT5TTS
+│   │   ├── transformers/     # WhisperSTT, TransformersLLM, SpeechT5TTS
 │   │   ├── native/           # NativeWhisperSTT, NativeLlama, NativeSherpaOnnxTTS
 │   │   └── cloud/            # CloudLLM (OpenAI, Ollama, vLLM)
 │   ├── client/
