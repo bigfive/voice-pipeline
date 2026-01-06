@@ -1,6 +1,6 @@
 {
   "name": "voice-pipeline",
-  "version": "5.0.0",
+  "version": "5.1.0",
   "description": "Isomorphic STT → LLM → TTS pipeline library for AI voice agents and voice assistants",
   "type": "module",
   "main": "./dist/index.js",
@@ -34,7 +34,8 @@
   "files": [
     "dist",
     "scripts",
-    "README.md"
+    "README.md",
+    "USAGE.md"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
