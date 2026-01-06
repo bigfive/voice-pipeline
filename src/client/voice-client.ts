@@ -55,7 +55,7 @@ export type VoiceClientStatus =
 export interface VoiceClientConfig {
   /**
    * STT backend - runs locally in browser
-   * - Provide an STTPipeline (e.g., WhisperSTT) or WebSpeechSTT for local STT
+   * - Provide an STTPipeline (e.g., TransformersSTT) or WebSpeechSTT for local STT
    * - Set to null to use server-side STT (requires serverUrl)
    * @default null (server handles)
    */
@@ -71,7 +71,7 @@ export interface VoiceClientConfig {
 
   /**
    * TTS backend - runs locally in browser
-   * - Provide a TTSPipeline (e.g., SpeechT5TTS) or WebSpeechTTS for local TTS
+   * - Provide a TTSPipeline (e.g., TransformersTTS) or WebSpeechTTS for local TTS
    * - Set to null to use server-side TTS (requires serverUrl)
    * @default null (server handles)
    */
@@ -184,7 +184,7 @@ export class VoiceClient {
     const issues: string[] = [];
 
     if (!support.webSpeechSTT) {
-      issues.push('Speech recognition (WebSpeech STT) - use Chrome, Edge, or Safari, or use WhisperSTT for local transcription');
+      issues.push('Speech recognition (WebSpeech STT) - use Chrome, Edge, or Safari, or use TransformersSTT for local transcription');
     }
     if (!support.mediaDevices) {
       issues.push('Microphone access (MediaDevices API)');
@@ -966,11 +966,11 @@ export class VoiceClient {
           'WebSpeech STT is not supported in this browser.\n\n' +
           'Options:\n' +
           '  1. Use Chrome, Edge, or Safari (they support Web Speech API)\n' +
-          '  2. Use WhisperSTT for local transcription (works in all browsers with WebGPU)\n' +
+          '  2. Use TransformersSTT for local transcription (works in all browsers with WebGPU)\n' +
           '  3. Use server-side STT by setting stt: null with a serverUrl\n\n' +
-          'Example with WhisperSTT:\n' +
-          '  import { WhisperSTT } from "voice-pipeline";\n' +
-          '  const client = new VoiceClient({ stt: new WhisperSTT({ model: "Xenova/whisper-tiny" }), ... })'
+          'Example with TransformersSTT:\n' +
+          '  import { TransformersSTT } from "voice-pipeline";\n' +
+          '  const client = new VoiceClient({ stt: new TransformersSTT({ model: "Xenova/whisper-tiny" }), ... })'
         );
       }
     }
@@ -1021,7 +1021,7 @@ export class VoiceClient {
  * @example
  * // Fully local
  * const client = createVoiceClient({
- *   stt: new WhisperSTT({ model: '...' }),
+ *   stt: new TransformersSTT({ model: '...' }),
  *   llm: new TransformersLLM({ model: '...' }),
  *   tts: new WebSpeechTTS(),
  *   systemPrompt: 'You are a helpful assistant.',

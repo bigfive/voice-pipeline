@@ -175,7 +175,7 @@ export class PipelineSession {
           // This is a config error - server TTS must produce raw audio
           enqueue({
             type: 'error',
-            message: 'Server TTS backend does not provide raw audio. Use a TTS backend that produces raw audio (SpeechT5TTS, NativeSherpaOnnxTTS), or configure client with localTTS.',
+            message: 'Server TTS backend does not provide raw audio. Use a TTS backend that produces raw audio (TransformersTTS, NativeTTS), or configure client with localTTS.',
           });
           isComplete = true;
           return;

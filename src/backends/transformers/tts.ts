@@ -1,13 +1,15 @@
 /**
- * SpeechT5 TTS Pipeline (Transformers.js)
+ * Transformers.js TTS Pipeline
  * Isomorphic - works in browser (WebGPU) and Node.js
+ *
+ * Supports SpeechT5 and other TTS models from Hugging Face.
  */
 
 import { pipeline } from '@huggingface/transformers';
 import type { TTSPipeline, TransformersTTSConfig, ProgressCallback, AudioPlayable } from '../../types';
 import { BufferedAudioPlayable } from '../../types';
 
-export class SpeechT5TTS implements TTSPipeline {
+export class TransformersTTS implements TTSPipeline {
   private config: TransformersTTSConfig;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private pipe: any = null;

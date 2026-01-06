@@ -22,7 +22,7 @@
  */
 
 import { VoicePipeline } from 'voice-pipeline';
-import { NativeLlama, getBinaryPath, getModelPath, getCacheDir } from 'voice-pipeline/native';
+import { NativeLLM, getBinaryPath, getModelPath, getCacheDir } from 'voice-pipeline/native';
 import { createPipelineHandler } from 'voice-pipeline/server';
 import { startWebSocketServer, logPipelineInfo, demoTools } from '../shared';
 
@@ -53,7 +53,7 @@ async function main(): Promise<void> {
   // LLM-only pipeline with tools - client handles STT and TTS
   const pipeline = new VoicePipeline({
     stt: null,  // Client does WebSpeech STT
-    llm: new NativeLlama(CONFIG.llm),
+    llm: new NativeLLM(CONFIG.llm),
     tts: null,  // Client does WebSpeech TTS
     systemPrompt: CONFIG.systemPrompt,
     tools: demoTools,

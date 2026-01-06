@@ -10,7 +10,7 @@
  */
 
 import { VoicePipeline, TransformersLLM } from 'voice-pipeline';
-import { NativeWhisperSTT, getBinaryPath, getModelPath, getCacheDir } from 'voice-pipeline/native';
+import { NativeSTT, getBinaryPath, getModelPath, getCacheDir } from 'voice-pipeline/native';
 import { createPipelineHandler } from 'voice-pipeline/server';
 import { startWebSocketServer, logPipelineInfo } from '../shared';
 
@@ -43,7 +43,7 @@ async function main(): Promise<void> {
 
   // Mixed pipeline: native STT + Transformers.js LLM + no TTS (client handles)
   const pipeline = new VoicePipeline({
-    stt: new NativeWhisperSTT(CONFIG.stt),
+    stt: new NativeSTT(CONFIG.stt),
     llm: new TransformersLLM(CONFIG.llm),
     tts: null, // Client handles TTS with WebSpeech
     systemPrompt: CONFIG.systemPrompt,

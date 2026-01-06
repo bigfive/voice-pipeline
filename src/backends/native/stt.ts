@@ -1,5 +1,5 @@
 /**
- * Whisper STT Pipeline (Native - whisper.cpp)
+ * Native STT Pipeline (whisper.cpp)
  * Server-only - requires native binary
  */
 
@@ -8,7 +8,7 @@ import { writeFileSync, unlinkSync, existsSync } from 'fs';
 import { join } from 'path';
 import type { STTPipeline, NativeSTTConfig, ProgressCallback } from '../../types';
 
-export class NativeWhisperSTT implements STTPipeline {
+export class NativeSTT implements STTPipeline {
   private config: NativeSTTConfig;
   private ready = false;
 

@@ -15,7 +15,7 @@
  */
 
 import { VoicePipeline } from 'voice-pipeline';
-import { NativeWhisperSTT, NativeSherpaOnnxTTS, getBinaryPath, getModelPath, getCacheDir } from 'voice-pipeline/native';
+import { NativeSTT, NativeTTS, getBinaryPath, getModelPath, getCacheDir } from 'voice-pipeline/native';
 import { CloudLLM } from 'voice-pipeline/cloud';
 import { createPipelineHandler } from 'voice-pipeline/server';
 import { startWebSocketServer, logPipelineInfo } from '../shared';
@@ -60,9 +60,9 @@ async function main(): Promise<void> {
   console.log(`  Sherpa-ONNX:  ${CONFIG.tts.binaryPath}`);
 
   const pipeline = new VoicePipeline({
-    stt: new NativeWhisperSTT(CONFIG.stt),
+    stt: new NativeSTT(CONFIG.stt),
     llm: new CloudLLM(CONFIG.llm),
-    tts: new NativeSherpaOnnxTTS(CONFIG.tts),
+    tts: new NativeTTS(CONFIG.tts),
     systemPrompt: CONFIG.systemPrompt,
   });
 

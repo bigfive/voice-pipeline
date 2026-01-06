@@ -5,7 +5,7 @@
  * Client sends audio, server returns audio.
  */
 
-import { VoicePipeline, WhisperSTT, TransformersLLM, SpeechT5TTS } from 'voice-pipeline';
+import { VoicePipeline, TransformersSTT, TransformersLLM, TransformersTTS } from 'voice-pipeline';
 import { createPipelineHandler } from 'voice-pipeline/server';
 import { startWebSocketServer, logPipelineInfo } from '../shared';
 
@@ -22,9 +22,9 @@ async function main(): Promise<void> {
   console.log('Loading Transformers.js models...');
 
   const pipeline = new VoicePipeline({
-    stt: new WhisperSTT(CONFIG.stt),
+    stt: new TransformersSTT(CONFIG.stt),
     llm: new TransformersLLM(CONFIG.llm),
-    tts: new SpeechT5TTS(CONFIG.tts),
+    tts: new TransformersTTS(CONFIG.tts),
     systemPrompt: CONFIG.systemPrompt,
   });
 

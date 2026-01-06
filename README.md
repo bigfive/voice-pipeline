@@ -15,7 +15,7 @@ button.onmousedown = () => client.startRecording();
 button.onmouseup = () => client.stopRecording();
 ```
 
-That's a working voice assistant. No audio capture code, no streaming logic, no WebSocket boilerplate.
+That's a working voice assistant. No audio capture code, no streaming logic, no WebSocket boilerplate. See [`examples/example-0-bare-bones`](./examples/example-0-bare-bones/) for a complete working example in under 30 lines of HTML.
 
 **The trick:** each slot (STT, LLM, TTS) can run in the browser or on a server — swap `WebSpeechSTT()` for `null` and it runs server-side. Same API, same events, different backends.
 
@@ -89,13 +89,13 @@ const client = createVoiceClient({
 **Server:**
 ```typescript
 import { WebSocketServer } from 'ws';
-import { VoicePipeline, WhisperSTT, TransformersLLM, SpeechT5TTS } from 'voice-pipeline';
+import { VoicePipeline, TransformersSTT, TransformersLLM, TransformersTTS } from 'voice-pipeline';
 import { createPipelineHandler } from 'voice-pipeline/server';
 
 const pipeline = new VoicePipeline({
-  stt: new WhisperSTT({ model: 'Xenova/whisper-small', dtype: 'q8' }),
+  stt: new TransformersSTT({ model: 'Xenova/whisper-small', dtype: 'q8' }),
   llm: new TransformersLLM({ model: 'HuggingFaceTB/SmolLM2-1.7B-Instruct', dtype: 'q4' }),
-  tts: new SpeechT5TTS({ model: 'Xenova/speecht5_tts', dtype: 'fp16', speakerEmbeddings: '...' }),
+  tts: new TransformersTTS({ model: 'Xenova/speecht5_tts', dtype: 'fp16', speakerEmbeddings: '...' }),
   systemPrompt: 'You are a helpful voice assistant.',
 });
 
@@ -134,18 +134,18 @@ const client = createVoiceClient({
 **Server:**
 ```typescript
 import { VoicePipeline } from 'voice-pipeline';
-import { NativeWhisperSTT, NativeSherpaOnnxTTS } from 'voice-pipeline/native';
+import { NativeSTT, NativeTTS } from 'voice-pipeline/native';
 import { CloudLLM } from 'voice-pipeline/cloud';
 
 const pipeline = new VoicePipeline({
-  stt: new NativeWhisperSTT({ model: 'base.en' }),
+  stt: new NativeSTT({ model: 'base.en' }),
   llm: new CloudLLM({
     baseUrl: 'https://api.openai.com/v1',
     apiKey: process.env.OPENAI_API_KEY,
     model: 'gpt-4o',
     maxTokens: 256,
   }),
-  tts: new NativeSherpaOnnxTTS({ model: 'en_US-amy-medium' }),
+  tts: new NativeTTS({ model: 'en_US-amy-medium' }),
   systemPrompt: 'You are a helpful voice assistant.',
 });
 ```
@@ -171,12 +171,12 @@ const client = createVoiceClient({
 **Server:**
 ```typescript
 import { VoicePipeline } from 'voice-pipeline';
-import { NativeLlama } from 'voice-pipeline/native';
+import { NativeLLM } from 'voice-pipeline/native';
 
 // Server only needs LLM - client handles STT/TTS
 const pipeline = new VoicePipeline({
   stt: null,                    // client sends text
-  llm: new NativeLlama({ ... }),
+  llm: new NativeLLM({ ... }),
   tts: null,                    // client receives text
   systemPrompt: '...',
 });
@@ -188,7 +188,7 @@ const pipeline = new VoicePipeline({
 
 ```typescript
 // Main library - pipeline + Transformers.js backends
-import { VoicePipeline, WhisperSTT, TransformersLLM, SpeechT5TTS } from 'voice-pipeline';
+import { VoicePipeline, TransformersSTT, TransformersLLM, TransformersTTS } from 'voice-pipeline';
 
 // Client SDK - unified browser interface
 import {
@@ -203,9 +203,9 @@ import { createPipelineHandler } from 'voice-pipeline/server';
 
 // Native backends (server-only)
 import {
-  NativeWhisperSTT,
-  NativeLlama,
-  NativeSherpaOnnxTTS,
+  NativeSTT,
+  NativeLLM,
+  NativeTTS,
   defaultPaths,
   getCacheDir
 } from 'voice-pipeline/native';
@@ -345,7 +345,7 @@ All LLM backends support tools with the same API:
 | Backend | How Tools Work |
 |---------|----------------|
 | `CloudLLM` | Native OpenAI function calling API |
-| `NativeLlama` | GBNF grammar constraint — guarantees valid JSON tool calls, with streaming for text responses |
+| `NativeLLM` | GBNF grammar constraint — guarantees valid JSON tool calls, with streaming for text responses |
 | `TransformersLLM` (Transformers.js) | Prompt injection (instructions added to system prompt) |
 
 You don't need to do anything different — just pass `tools` and the backend handles it.
@@ -437,8 +437,8 @@ ollama pull llama3.2
 voice-pipeline/
 ├── src/
 │   ├── backends/
-│   │   ├── transformers/     # WhisperSTT, TransformersLLM, SpeechT5TTS
-│   │   ├── native/           # NativeWhisperSTT, NativeLlama, NativeSherpaOnnxTTS
+│   │   ├── transformers/     # TransformersSTT, TransformersLLM, TransformersTTS
+│   │   ├── native/           # NativeSTT, NativeLLM, NativeTTS
 │   │   └── cloud/            # CloudLLM (OpenAI, Ollama, vLLM)
 │   ├── client/
 │   │   ├── voice-client.ts   # Unified browser SDK
@@ -456,13 +456,13 @@ The server supports automatic capability detection for scenarios where you need 
 
 ```typescript
 import { VoicePipeline } from 'voice-pipeline';
-import { NativeWhisperSTT, NativeLlama, NativeSherpaOnnxTTS } from 'voice-pipeline/native';
+import { NativeSTT, NativeLLM, NativeTTS } from 'voice-pipeline/native';
 
 // Server with full pipeline - adapts to client capabilities
 const pipeline = new VoicePipeline({
-  stt: new NativeWhisperSTT({ ... }),  // used if client sends audio
-  llm: new NativeLlama({ ... }),
-  tts: new NativeSherpaOnnxTTS({ ... }), // skipped if client has local TTS
+  stt: new NativeSTT({ ... }),  // used if client sends audio
+  llm: new NativeLLM({ ... }),
+  tts: new NativeTTS({ ... }), // skipped if client has local TTS
   systemPrompt: '...',
 });
 ```

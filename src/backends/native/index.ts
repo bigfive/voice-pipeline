@@ -1,6 +1,6 @@
-export { NativeWhisperSTT } from './stt';
-export { NativeLlama } from './llm';
-export { NativeSherpaOnnxTTS } from './tts';
+export { NativeSTT } from './stt';
+export { NativeLLM } from './llm';
+export { NativeTTS } from './tts';
 
 // Cache utilities (Node.js only)
 export {

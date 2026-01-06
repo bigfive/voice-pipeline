@@ -1,5 +1,5 @@
 /**
- * Sherpa-ONNX TTS Pipeline (Native)
+ * Native TTS Pipeline (sherpa-onnx)
  * Server-only - requires sherpa-onnx binary
  *
  * Uses sherpa-onnx-offline-tts which supports Piper ONNX models.
@@ -13,7 +13,7 @@ import { tmpdir } from 'os';
 import type { TTSPipeline, SherpaOnnxTTSConfig, ProgressCallback, AudioResult, AudioPlayable } from '../../types';
 import { BufferedAudioPlayable } from '../../types';
 
-export class NativeSherpaOnnxTTS implements TTSPipeline {
+export class NativeTTS implements TTSPipeline {
   private config: SherpaOnnxTTSConfig;
   private ready = false;
   private modelPath: string = '';

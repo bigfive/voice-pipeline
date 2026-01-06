@@ -1,5 +1,5 @@
 /**
- * Llama LLM Pipeline (Native - llama.cpp)
+ * Native LLM Pipeline (llama.cpp)
  * Server-only - requires native binary (llama-completion)
  *
  * When tools are provided, uses GBNF grammar that allows either:
@@ -26,7 +26,7 @@ import type {
 } from '../../types';
 import { LLMLogger, LLMConversationTracker, type TrackerMessage } from '../../services';
 
-export class NativeLlama implements LLMPipeline {
+export class NativeLLM implements LLMPipeline {
   private config: NativeLLMConfig;
   private ready = false;
   private tracker: LLMConversationTracker;
@@ -298,7 +298,7 @@ ws ::= [ \\t\\n]*
         // Stream tokens if callback provided, filtering out special markers
         // llama.cpp sends special tokens as complete strings, not split across chunks
         if (options?.onToken) {
-          const filtered = chunk.replace(NativeLlama.SPECIAL_TOKENS, '');
+          const filtered = chunk.replace(NativeLLM.SPECIAL_TOKENS, '');
           for (const char of filtered) {
             options.onToken(char);
           }
@@ -316,7 +316,7 @@ ws ::= [ \\t\\n]*
         }
 
         // Clean up output - remove special tokens
-        const cleaned = output.replace(NativeLlama.SPECIAL_TOKENS, '').trim();
+        const cleaned = output.replace(NativeLLM.SPECIAL_TOKENS, '').trim();
         this.tracker.logRawOutput(conversationId, cleaned);
         resolve(cleaned);
       });
@@ -352,7 +352,7 @@ ws ::= [ \\t\\n]*
       const TOOL_PREFIX = 'TOOL:';
 
       proc.stdout.on('data', (data: Buffer) => {
-        const chunk = data.toString().replace(NativeLlama.SPECIAL_TOKENS, '');
+        const chunk = data.toString().replace(NativeLLM.SPECIAL_TOKENS, '');
         buffer += chunk;
 
         // Detect mode from prefix
@@ -401,7 +401,7 @@ ws ::= [ \\t\\n]*
         // Final processing based on mode
         const fullOutput = (mode === 'say' ? SAY_PREFIX + ' ' : TOOL_PREFIX + ' ') +
                           (textContent || '') + buffer;
-        this.tracker.logRawOutput(conversationId, fullOutput.replace(NativeLlama.SPECIAL_TOKENS, '').trim());
+        this.tracker.logRawOutput(conversationId, fullOutput.replace(NativeLLM.SPECIAL_TOKENS, '').trim());
 
         if (mode === 'say') {
           // Any remaining content in buffer

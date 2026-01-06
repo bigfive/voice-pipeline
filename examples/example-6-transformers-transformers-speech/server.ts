@@ -9,7 +9,7 @@
  * Run: npm run dev:transformers-speech
  */
 
-import { VoicePipeline, WhisperSTT, TransformersLLM } from 'voice-pipeline';
+import { VoicePipeline, TransformersSTT, TransformersLLM } from 'voice-pipeline';
 import { createPipelineHandler } from 'voice-pipeline/server';
 import { startWebSocketServer, logPipelineInfo } from '../shared';
 
@@ -29,7 +29,7 @@ async function main(): Promise<void> {
 
   // STT + LLM pipeline - client handles TTS
   const pipeline = new VoicePipeline({
-    stt: new WhisperSTT(CONFIG.stt),
+    stt: new TransformersSTT(CONFIG.stt),
     llm: new TransformersLLM(CONFIG.llm),
     tts: null,  // Client does WebSpeech TTS
     systemPrompt: CONFIG.systemPrompt,

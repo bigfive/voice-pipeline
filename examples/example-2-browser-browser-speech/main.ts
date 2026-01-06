@@ -11,7 +11,7 @@
  */
 
 import { VoiceClient, createVoiceClient, WebSpeechTTS } from 'voice-pipeline/client';
-import { WhisperSTT, TransformersLLM } from 'voice-pipeline';
+import { TransformersSTT, TransformersLLM } from 'voice-pipeline';
 import {
   getUIElements,
   createMessageHelpers,
@@ -53,7 +53,7 @@ if (!support.webSpeechTTS) {
 
 const client = createVoiceClient({
   // All components are local - no server needed!
-  stt: new WhisperSTT({
+  stt: new TransformersSTT({
     model: 'Xenova/whisper-tiny.en',
     dtype: 'q8',
   }),

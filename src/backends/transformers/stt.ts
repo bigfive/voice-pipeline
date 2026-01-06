@@ -1,12 +1,14 @@
 /**
- * Whisper STT Pipeline (Transformers.js)
+ * Transformers.js STT Pipeline
  * Isomorphic - works in browser (WebGPU) and Node.js
+ *
+ * Supports Whisper, Moonshine, Wav2Vec2, and other ASR models from Hugging Face.
  */
 
 import { pipeline } from '@huggingface/transformers';
 import type { STTPipeline, TransformersSTTConfig, ProgressCallback } from '../../types';
 
-export class WhisperSTT implements STTPipeline {
+export class TransformersSTT implements STTPipeline {
   private config: TransformersSTTConfig;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private pipe: any = null;

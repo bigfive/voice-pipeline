@@ -1,17 +1,20 @@
 <!DOCTYPE html>
 <html>
 <head><title>Bare Bones</title></head>
-<body>
-  <button id="talkBtn" style="margin: 50px auto; display: block; font-size: 24px;" disabled />
+<body style="text-align: center;">
+  <h1>Bare Bones</h1>
+  <p>First run may take a while to initialize while it downloads the model. Push-to-talk once ready.</p>
+  <button id="talkBtn" style="font-size: 24px;" disabled />
+
   <script type="module">
     import { createVoiceClient, WebSpeechSTT, WebSpeechTTS } from 'voice-pipeline/client';
     import { TransformersLLM } from 'voice-pipeline';
 
     const client = createVoiceClient({
       stt: new WebSpeechSTT(),
-      llm: new TransformersLLM({ model: 'HuggingFaceTB/SmolLM2-360M-Instruct', dtype: 'q4', maxNewTokens: 75, temperature: 0.7, device: 'webgpu' }),
+      llm: new TransformersLLM({ model: 'HuggingFaceTB/SmolLM2-135M-Instruct', dtype: 'q4', maxNewTokens: 100, temperature: 0.7, device: 'webgpu' }),
       tts: new WebSpeechTTS(),
-      systemPrompt: 'Short, one-word answers only',
+      systemPrompt: 'You are an assistant that answers with single words only',
     });
 
     const button = document.getElementById('talkBtn');
