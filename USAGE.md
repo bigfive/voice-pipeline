@@ -2,44 +2,58 @@
 
 Detailed documentation for voice-pipeline. For a quick overview, see [README.md](./README.md).
 
+## Two Ways to Use
+
+**Option 1: Browser Only**
+
+Create a `VoiceClient` with all components running locally in the browser. No server needed.
+
+```typescript
+import { createVoiceClient, WebSpeechSTT, WebSpeechTTS } from 'voice-pipeline/client';
+import { TransformersLLM } from 'voice-pipeline';
+
+const client = createVoiceClient({
+  stt: new WebSpeechSTT(),
+  llm: new TransformersLLM({ model: '...' }),
+  tts: new WebSpeechTTS(),
+  systemPrompt: '...',
+});
+```
+
+**Option 2: Browser + Server**
+
+Create a `VoiceClient` in the browser and a `VoicePipeline` on the server. Connect them via WebSocket. Set any component to `null` on the client to have the server handle it.
+
+```typescript
+// Browser
+const client = createVoiceClient({
+  stt: null,  // server handles
+  llm: null,  // server handles
+  tts: null,  // server handles
+  serverUrl: 'ws://localhost:3100',
+});
+
+// Server
+const pipeline = new VoicePipeline({
+  stt: new NativeSTT({ model: 'base.en' }),
+  llm: new CloudLLM({ model: 'gpt-4o', ... }),
+  tts: new NativeTTS({ model: 'en_US-amy-medium' }),
+  systemPrompt: '...',
+});
+```
+
+You can mix and match — run STT and TTS in the browser while the server handles just the LLM, or any other combination.
+
+---
+
 ## Table of Contents
 
-- [Exports](#exports)
 - [VoiceClient (Browser)](#voiceclient-browser)
 - [VoicePipeline (Server)](#voicepipeline-server)
 - [Configuration Examples](#configuration-examples)
 - [Tools (Function Calling)](#tools-function-calling)
 - [Backend Reference](#backend-reference)
-
-## Exports
-
-```typescript
-// Main library - pipeline + Transformers.js backends
-import { VoicePipeline, TransformersSTT, TransformersLLM, TransformersTTS } from 'voice-pipeline';
-
-// Client SDK - unified browser interface
-import {
-  createVoiceClient,
-  VoiceClient,
-  WebSpeechSTT,
-  WebSpeechTTS
-} from 'voice-pipeline/client';
-
-// Server utilities - WebSocket handler
-import { createPipelineHandler } from 'voice-pipeline/server';
-
-// Native backends (server-only)
-import {
-  NativeSTT,
-  NativeLLM,
-  NativeTTS,
-  defaultPaths,
-  getCacheDir
-} from 'voice-pipeline/native';
-
-// Cloud backends (server-only)
-import { CloudLLM } from 'voice-pipeline/cloud';
-```
+- [Exports](#exports)
 
 ## VoiceClient (Browser)
 
@@ -49,10 +63,14 @@ The unified browser SDK for voice interactions.
 
 ```typescript
 const client = createVoiceClient({
-  // Components: provide locally, or null for server
-  stt: STTPipeline | WebSpeechSTT | null,
-  llm: LLMPipeline | null,
-  tts: TTSPipeline | WebSpeechTTS | null,
+  // STT options: browser speech API, browser/server JS, or server handles
+  stt: WebSpeechSTT | TransformersSTT | null,
+
+  // LLM options: browser/server JS, or server handles
+  llm: TransformersLLM | null,
+
+  // TTS options: browser speech API, browser/server JS, or server handles
+  tts: WebSpeechTTS | TransformersTTS | null,
 
   // Required if any component is null
   serverUrl: 'ws://localhost:3100',
@@ -118,9 +136,15 @@ The server-side pipeline that processes audio/text through STT → LLM → TTS.
 
 ```typescript
 const pipeline = new VoicePipeline({
-  stt: STTPipeline | null,    // null if client handles STT
-  llm: LLMPipeline,           // required
-  tts: TTSPipeline | null,    // null if client handles TTS
+  // STT options: JS or native binary, or null if client handles
+  stt: TransformersSTT | NativeSTT | null,
+
+  // LLM options: JS, native binary, or cloud API (required)
+  llm: TransformersLLM | NativeLLM | CloudLLM,
+
+  // TTS options: JS or native binary, or null if client handles
+  tts: TransformersTTS | NativeTTS | null,
+
   systemPrompt: string,
   tools?: Tool[],             // optional function calling
 });
@@ -512,3 +536,32 @@ When a client connects, it announces its capabilities. The server then:
 
 This is useful for zero-downtime upgrades where old and new clients coexist, but for most cases you should just configure the server with exactly what it needs (using `null` for components the client handles).
 
+## Exports
+
+```typescript
+// Main library - pipeline + Transformers.js backends
+import { VoicePipeline, TransformersSTT, TransformersLLM, TransformersTTS } from 'voice-pipeline';
+
+// Client SDK - unified browser interface
+import {
+  createVoiceClient,
+  VoiceClient,
+  WebSpeechSTT,
+  WebSpeechTTS
+} from 'voice-pipeline/client';
+
+// Server utilities - WebSocket handler
+import { createPipelineHandler } from 'voice-pipeline/server';
+
+// Native backends (server-only)
+import {
+  NativeSTT,
+  NativeLLM,
+  NativeTTS,
+  defaultPaths,
+  getCacheDir
+} from 'voice-pipeline/native';
+
+// Cloud backends (server-only)
+import { CloudLLM } from 'voice-pipeline/cloud';
+```
