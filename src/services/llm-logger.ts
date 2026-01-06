@@ -233,12 +233,7 @@ export class LLMConversationTracker {
 
     if (toolCalls && toolCalls.length > 0) {
       for (const tc of toolCalls) {
-        // Handle the special "respond" tool from native backend
-        if (tc.name === 'respond' && tc.arguments.message) {
-          this.logger.log({ type: 'response', content: tc.arguments.message as string });
-        } else {
-          this.logger.log({ type: 'tool_call', name: tc.name, args: tc.arguments });
-        }
+        this.logger.log({ type: 'tool_call', name: tc.name, args: tc.arguments });
       }
     } else if (content) {
       this.logger.log({ type: 'response', content });

@@ -263,13 +263,15 @@ export class VoicePipeline {
     // Tool execution loop
     for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration++) {
       const isToolCheckTurn = hasTools && iteration === 0;
+      // Native tools now support streaming (via <text_response> format)
+      // So we can stream whenever it's appropriate
       const shouldStream = !isToolCheckTurn || useNativeTools;
 
       const result = await this.generateLLMResponse(
         context,
         callbacks,
         useNativeTools,
-        shouldStream && !useNativeTools
+        shouldStream  // Enable streaming for native tools too
       );
 
       const toolCalls = useNativeTools
@@ -277,7 +279,9 @@ export class VoicePipeline {
         : this.parsePromptBasedToolCalls(result.content);
 
       if (!toolCalls || toolCalls.length === 0) {
-        if (!shouldStream || useNativeTools) {
+        // Only call streamResponse if we didn't stream during generation
+        // Native tools stream during generation, so skip here
+        if (!shouldStream) {
           await this.streamResponse(result.content, callbacks);
         }
 

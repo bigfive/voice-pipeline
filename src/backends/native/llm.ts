@@ -2,11 +2,12 @@
  * Llama LLM Pipeline (Native - llama.cpp)
  * Server-only - requires native binary (llama-completion)
  *
- * When tools are provided, uses GBNF grammar to guarantee valid JSON tool calls.
- * A special "respond" tool is automatically added - the model must call this to reply.
+ * When tools are provided, uses GBNF grammar that allows either:
+ * - TOOL: [{"name": "...", "arguments": {...}}] for tool invocations
+ * - SAY: natural language for direct responses (streamable!)
  *
- * Uses SmolLM2/HuggingFace standard tool call format:
- * <tool_call>[{"name": "func", "arguments": {...}}]</tool_call>
+ * This allows real token streaming for text responses while maintaining
+ * structured tool calling when needed.
  */
 
 import { spawn } from 'child_process';
@@ -24,22 +25,6 @@ import type {
   AssistantMessage,
 } from '../../types';
 import { LLMLogger, LLMConversationTracker, type TrackerMessage } from '../../services';
-
-/** Special "respond" tool that signals completion */
-const RESPOND_TOOL: ToolDefinition = {
-  name: 'respond',
-  description: 'Call this to respond to the user with your final answer. Most requests only require this tool. You MUST call this when you are ready to reply.',
-  parameters: {
-    type: 'object',
-    properties: {
-      message: {
-        type: 'string',
-        description: 'Your response message to the user',
-      },
-    },
-    required: ['message'],
-  },
-};
 
 export class NativeLlama implements LLMPipeline {
   private config: NativeLLMConfig;
@@ -62,7 +47,7 @@ export class NativeLlama implements LLMPipeline {
     }
 
     this.ready = true;
-    console.log('Native LLM ready.');
+    console.log(`Native LLM ready. Model: ${this.config.modelPath}`);
   }
 
   supportsTools(): boolean {
@@ -101,38 +86,44 @@ export class NativeLlama implements LLMPipeline {
       2
     );
 
-    return `You have access to tools:
+    return `
+You have access to tools, but ONLY use them when explicitly needed:
 <tools>${toolsJson}</tools>
 
-- Most user requests only require a "respond" tool call to answer the question directly
-- Some user requests may require other tools first.
+IMPORTANT: Default to SAY for most interactions. Only use tools when the user EXPLICITLY asks for something the tool provides.
 
-The output MUST strictly adhere to the following format. Use the "respond" tool for direct answers and to end the conversation.
-<tool_call>[
-{"name": "func_name1", "arguments": {"argument1": "value1", "argument2": "value2"}}
-]</tool_call>`;
+Response formats:
+- SAY: Your natural language response — USE THIS BY DEFAULT for greetings, conversation, questions, explanations, and any response where you don't need external data.
+- TOOL: [{"name": "tool_name", "arguments": {"arg1": "value1"}}] — ONLY use when the user specifically requests information that requires a tool (e.g., "what time is it?" needs get_current_time).
+
+Examples of when NOT to use tools:
+- "Hello" / "Hi" / "Hey" → just greet back with SAY:
+- "How are you?" → respond naturally with SAY:
+- "Tell me a joke" → respond with SAY:
+- "What can you do?" → describe capabilities with SAY:`;
   }
 
   /**
-   * Generate with GBNF grammar constraint - guarantees valid JSON tool calls
-   * Uses SmolLM2/HuggingFace format: <tool_call>[{...}]</tool_call>
+   * Generate with GBNF grammar constraint
+   * Allows either:
+   * - TOOL: [{...}] for tool invocations
+   * - SAY: text for streamable text responses
    */
   private async generateWithGrammar(
     messages: Message[],
     options: LLMGenerateOptions
   ): Promise<LLMGenerateResult> {
-    // Add the "respond" tool to the tool list (respond is always available)
-    const allTools = [...(options.tools ?? []), RESPOND_TOOL];
+    const tools = options.tools ?? [];
 
-    // Build grammar for tool calls
-    const grammar = this.buildToolGrammar(allTools);
+    // Build grammar that allows say OR tool_call
+    const grammar = this.buildToolGrammar(tools);
 
     // Write grammar to temp file (llama-completion needs a file path)
     const grammarPath = join(tmpdir(), `grammar-${Date.now()}.gbnf`);
     writeFileSync(grammarPath, grammar);
 
     try {
-      const prompt = this.formatChatPromptWithTools(messages, allTools);
+      const prompt = this.formatChatPromptWithTools(messages, tools);
 
       // llama-completion args for clean non-interactive output
       const args = [
@@ -150,39 +141,10 @@ The output MUST strictly adhere to the following format. Use the "respond" tool 
         args.push('-ngl', String(this.config.gpuLayers));
       }
 
-      const output = await this.runLlamaCompletion(args, messages, options);
+      // Use streaming completion that handles both formats
+      const result = await this.runLlamaCompletionWithStreaming(args, messages, options);
 
-      // Parse the tool call array from <tool_call>[...]</tool_call> format
-      const toolCalls = this.parseToolCallOutput(output);
-
-      if (!toolCalls || toolCalls.length === 0) {
-        // No valid tool calls found
-        return {
-          content: output,
-          finishReason: 'stop',
-        };
-      }
-
-      // Check if it's the "respond" tool (special case - not a real tool call)
-      const firstCall = toolCalls[0];
-      if (firstCall.name === 'respond') {
-        const message = (firstCall.arguments?.message as string) || '';
-        return {
-          content: message,
-          finishReason: 'stop',
-        };
-      }
-
-      // Regular tool call - return for execution
-      return {
-        content: '',
-        toolCalls: toolCalls.map((tc, i) => ({
-          id: `native-${Date.now()}-${i}-${Math.random().toString(36).slice(2, 9)}`,
-          name: tc.name,
-          arguments: tc.arguments || {},
-        })),
-        finishReason: 'tool_calls',
-      };
+      return result;
     } finally {
       // Clean up temp grammar file
       try {
@@ -194,13 +156,12 @@ The output MUST strictly adhere to the following format. Use the "respond" tool 
   }
 
   /**
-   * Parse tool call output in SmolLM2/HuggingFace format
-   * <tool_call>[{"name": "...", "arguments": {...}}]</tool_call>
+   * Parse tool call output
+   * TOOL: [{"name": "...", "arguments": {...}}]
    */
   private parseToolCallOutput(output: string): Array<{ name: string; arguments: Record<string, unknown> }> | null {
-    // Try to extract JSON array from <tool_call>...</tool_call> tags
-    const tagMatch = output.match(/<tool_call>\s*([\s\S]*?)\s*<\/tool_call>/);
-    const jsonStr = tagMatch ? tagMatch[1] : output;
+    // The output should already be just the JSON array (TOOL: prefix stripped)
+    const jsonStr = output.trim();
 
     try {
       const parsed = JSON.parse(jsonStr.trim());
@@ -222,17 +183,26 @@ The output MUST strictly adhere to the following format. Use the "respond" tool 
   }
 
   /**
-   * Build GBNF grammar for SmolLM2/HuggingFace tool call format
-   * Output: <tool_call>[{"name": "...", "arguments": {...}}]</tool_call>
+   * Build GBNF grammar that allows either:
+   * - TOOL: [{"name": "...", "arguments": {...}}]
+   * - SAY: free text
    */
   private buildToolGrammar(tools: ToolDefinition[]): string {
-    // Build tool name alternatives: "get_weather" | "search" | "respond"
+    // Build tool name alternatives: "get_weather" | "search"
     const toolNames = tools.map(t => `"\\"${t.name}\\""`).join(' | ');
 
-    return `# Grammar for SmolLM2/HuggingFace tool calling format
-# Output: <tool_call>[{"name": "...", "arguments": {...}}]</tool_call>
+    return `# Grammar allowing text responses OR tool calls
+# Output: SAY: text OR TOOL: [json]
 
-root ::= "<tool_call>" ws tool-array ws "</tool_call>"
+root ::= say-response | tool-call
+
+# Say response - free form text (streamable)
+say-response ::= "SAY:" ws text-content
+text-content ::= text-char+
+text-char ::= [a-zA-Z0-9 .,!?'\"():;\\n\\t\\r-]
+
+# Tool call - structured JSON
+tool-call ::= "TOOL:" ws tool-array
 
 tool-array ::= "[" ws tool-obj ws "]"
 
@@ -260,7 +230,7 @@ ws ::= [ \\t\\n]*
 
   /**
    * Format chat prompt with tool definitions (for grammar mode)
-   * Uses SmolLM2/HuggingFace tool prompt format
+   * Uses ChatML format with tool instructions
    */
   private formatChatPromptWithTools(messages: Message[], tools: ToolDefinition[]): string {
     const toolSystemPrompt = this.buildToolSystemPrompt(tools);
@@ -276,16 +246,17 @@ ws ::= [ \\t\\n]*
       } else if (msg.role === 'assistant') {
         const assistantMsg = msg as AssistantMessage;
         if (assistantMsg.toolCalls && assistantMsg.toolCalls.length > 0) {
-          // Format tool calls in SmolLM2 format
+          // Format tool calls
           const toolCallJson = JSON.stringify(
             assistantMsg.toolCalls.map(tc => ({
               name: tc.name,
               arguments: tc.arguments,
             }))
           );
-          prompt += `<|im_start|>assistant\n<tool_call>${toolCallJson}</tool_call><|im_end|>\n`;
-        } else {
-          prompt += `<|im_start|>assistant\n${msg.content}<|im_end|>\n`;
+          prompt += `<|im_start|>assistant\nTOOL: ${toolCallJson}<|im_end|>\n`;
+        } else if (assistantMsg.content) {
+          // Format say response
+          prompt += `<|im_start|>assistant\nSAY: ${msg.content}<|im_end|>\n`;
         }
       } else if (msg.role === 'tool') {
         prompt += `<|im_start|>tool\n${msg.content}<|im_end|>\n`;
@@ -348,6 +319,132 @@ ws ::= [ \\t\\n]*
         const cleaned = output.replace(NativeLlama.SPECIAL_TOKENS, '').trim();
         this.tracker.logRawOutput(conversationId, cleaned);
         resolve(cleaned);
+      });
+
+      proc.on('error', reject);
+    });
+  }
+
+  /**
+   * Run llama-completion with smart streaming
+   * - SAY: streams tokens as they arrive
+   * - TOOL: buffers until complete, then parses
+   */
+  private runLlamaCompletionWithStreaming(
+    args: string[],
+    messages: Message[],
+    options?: LLMGenerateOptions
+  ): Promise<LLMGenerateResult> {
+    const conversationId = options?.conversationId ?? 'default';
+    this.tracker.logInput(conversationId, messages as TrackerMessage[]);
+
+    return new Promise((resolve, reject) => {
+      const proc = spawn(this.config.binaryPath, args, {
+        stdio: ['pipe', 'pipe', 'pipe'],
+      });
+
+      let buffer = '';
+      let mode: 'detecting' | 'say' | 'tool_call' = 'detecting';
+      let textContent = '';
+      let isStreaming = false;
+
+      const SAY_PREFIX = 'SAY:';
+      const TOOL_PREFIX = 'TOOL:';
+
+      proc.stdout.on('data', (data: Buffer) => {
+        const chunk = data.toString().replace(NativeLlama.SPECIAL_TOKENS, '');
+        buffer += chunk;
+
+        // Detect mode from prefix
+        if (mode === 'detecting') {
+          // Trim leading whitespace for detection
+          const trimmed = buffer.trimStart();
+          if (trimmed.startsWith(SAY_PREFIX)) {
+            mode = 'say';
+            isStreaming = true;
+            // Remove everything up to and including SAY:
+            const sayIndex = buffer.indexOf(SAY_PREFIX);
+            buffer = buffer.slice(sayIndex + SAY_PREFIX.length).trimStart();
+          } else if (trimmed.startsWith(TOOL_PREFIX)) {
+            mode = 'tool_call';
+            // Remove everything up to and including TOOL:
+            const toolIndex = buffer.indexOf(TOOL_PREFIX);
+            buffer = buffer.slice(toolIndex + TOOL_PREFIX.length).trimStart();
+          } else if (trimmed.length >= TOOL_PREFIX.length) {
+            // Buffer is long enough but doesn't match expected prefixes
+            // This shouldn't happen with grammar, but handle gracefully
+            mode = 'say';
+            isStreaming = true;
+          }
+        }
+
+        // Stream say content (no closing tag needed - just stream everything)
+        if (mode === 'say' && isStreaming && options?.onToken) {
+          for (const char of buffer) {
+            options.onToken(char);
+          }
+          textContent += buffer;
+          buffer = '';
+        }
+      });
+
+      proc.stderr.on('data', () => {
+        // Ignore stderr
+      });
+
+      proc.on('close', (code) => {
+        if (code !== 0) {
+          reject(new Error(`llama-completion exited with code ${code}`));
+          return;
+        }
+
+        // Final processing based on mode
+        const fullOutput = (mode === 'say' ? SAY_PREFIX + ' ' : TOOL_PREFIX + ' ') +
+                          (textContent || '') + buffer;
+        this.tracker.logRawOutput(conversationId, fullOutput.replace(NativeLlama.SPECIAL_TOKENS, '').trim());
+
+        if (mode === 'say') {
+          // Any remaining content in buffer
+          const remaining = buffer.trim();
+          if (remaining && options?.onToken) {
+            for (const char of remaining) {
+              options.onToken(char);
+            }
+          }
+          const finalContent = textContent + remaining;
+
+          resolve({
+            content: finalContent,
+            finishReason: 'stop',
+          });
+        } else if (mode === 'tool_call') {
+          // Parse tool call JSON
+          const toolCalls = this.parseToolCallOutput(buffer);
+
+          if (toolCalls && toolCalls.length > 0) {
+            resolve({
+              content: '',
+              toolCalls: toolCalls.map((tc, i) => ({
+                id: `native-${Date.now()}-${i}-${Math.random().toString(36).slice(2, 9)}`,
+                name: tc.name,
+                arguments: tc.arguments || {},
+              })),
+              finishReason: 'tool_calls',
+            });
+          } else {
+            // Failed to parse tool call
+            resolve({
+              content: buffer,
+              finishReason: 'stop',
+            });
+          }
+        } else {
+          // Detection never completed - return raw buffer
+          resolve({
+            content: buffer,
+            finishReason: 'stop',
+          });
+        }
       });
 
       proc.on('error', reject);

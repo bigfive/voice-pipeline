@@ -345,7 +345,7 @@ All LLM backends support tools with the same API:
 | Backend | How Tools Work |
 |---------|----------------|
 | `CloudLLM` | Native OpenAI function calling API |
-| `NativeLlama` | Prompt injection (instructions added to system prompt) |
+| `NativeLlama` | GBNF grammar constraint — guarantees valid JSON tool calls, with streaming for text responses |
 | `TransformersLLM` (Transformers.js) | Prompt injection (instructions added to system prompt) |
 
 You don't need to do anything different — just pass `tools` and the backend handles it.

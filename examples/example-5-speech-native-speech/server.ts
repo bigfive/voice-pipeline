@@ -11,7 +11,12 @@
  * - get_weather: Returns mock weather for a location
  * - roll_dice: Rolls dice (e.g., "2d6")
  *
- * Native LLM uses GBNF grammar to guarantee valid JSON tool calls.
+ * Native LLM uses GBNF grammar that allows either:
+ * - <tool_call>[...]</tool_call> for structured tool invocations
+ * - <text_response>...</text_response> for streamable text responses
+ *
+ * This enables real token streaming for natural language responses while
+ * maintaining reliable JSON for tool calls.
  *
  * Run: npm run dev:speech-native
  */
@@ -32,7 +37,7 @@ const CONFIG = {
     modelPath: getModelPath('qwen3-14b-q4_k_m.gguf'),
     maxNewTokens: 256,
     temperature: 0.7,
-    gpuLayers: 0,  // Set higher if you have GPU memory (e.g., 35 for ~16GB VRAM)
+    gpuLayers: 10,  // Set higher if you have GPU memory (e.g., 35 for ~16GB VRAM)
   },
   systemPrompt: `You are a helpful voice assistant. Keep responses brief—1-2 sentences. Speak naturally.`,
 };
@@ -187,7 +192,7 @@ async function main(): Promise<void> {
   console.log('  - "What\'s the weather in Tokyo?"');
   console.log('  - "Roll 2d6 for me"');
   console.log('');
-  console.log('Note: Native LLM uses grammar-constrained tool calling for reliable JSON output.');
+  console.log('Note: Native LLM uses grammar-constrained generation with streaming text responses.');
 }
 
 main().catch(console.error);
