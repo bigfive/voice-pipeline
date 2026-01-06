@@ -20,7 +20,7 @@ button.onmousedown = () => client.startRecording();
 button.onmouseup = () => client.stopRecording();
 ```
 
-That's a working voice assistant. No server required. See [`examples/example-0-bare-bones`](./examples/example-0-bare-bones/) for the complete 30-line HTML version.
+That's a working voice assistant. No server required. See [`examples/example-0-bare-bones`](./examples/example-0-bare-bones/index.html) for the complete 30-line HTML version.
 
 ## Mix and Match
 
