@@ -37,7 +37,7 @@ const CONFIG = {
     modelPath: getModelPath('qwen3-14b-q4_k_m.gguf'),
     maxNewTokens: 256,
     temperature: 0.7,
-    gpuLayers: 10,  // Set higher if you have GPU memory (e.g., 35 for ~16GB VRAM)
+    gpuLayers: 0,  // Set higher if you have GPU memory (e.g., 35 for ~16GB VRAM)
   },
   systemPrompt: `You are a helpful voice assistant. Keep responses brief—1-2 sentences. Speak naturally.`,
 };
