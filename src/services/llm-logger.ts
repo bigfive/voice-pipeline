@@ -160,45 +160,59 @@ export class LLMLogger {
 // ============================================================================
 
 /**
+ * Per-conversation tracking state
+ */
+interface ConversationState {
+  loggedMessages: string[];
+  callCount: number;
+}
+
+/**
  * Tracks conversation state and emits structured events for new messages.
  * Works with Message[] arrays directly - used by all backends.
+ * Supports multiple simultaneous conversations via conversation IDs.
  */
 export class LLMConversationTracker {
-  private loggedMessages: string[] = [];
+  private conversations = new Map<string, ConversationState>();
   private logger: LLMLogger;
-  private callCount = 0;
 
   constructor(logger: LLMLogger) {
     this.logger = logger;
   }
 
   /**
+   * Get or create state for a conversation
+   */
+  private getState(conversationId: string): ConversationState {
+    let state = this.conversations.get(conversationId);
+    if (!state) {
+      // New conversation!
+      state = { loggedMessages: [], callCount: 0 };
+      this.conversations.set(conversationId, state);
+      this.logger.log({ type: 'new_conversation' });
+    }
+    return state;
+  }
+
+  /**
    * Process messages array and emit events for new messages
    */
-  logInput(messages: TrackerMessage[]): void {
-    // Check if this is a new conversation (first message changed)
-    if (messages.length > 0 && this.loggedMessages.length > 0) {
-      const firstMsgKey = this.messageKey(messages[0]);
-      if (this.loggedMessages[0] !== firstMsgKey) {
-        this.loggedMessages = [];
-        this.callCount = 0;
-        this.logger.log({ type: 'new_conversation' });
-      }
-    }
+  logInput(conversationId: string, messages: TrackerMessage[]): void {
+    const state = this.getState(conversationId);
 
     // Find which messages are new
     const newMessages: TrackerMessage[] = [];
     for (let i = 0; i < messages.length; i++) {
       const msgKey = this.messageKey(messages[i]);
-      if (i >= this.loggedMessages.length || this.loggedMessages[i] !== msgKey) {
+      if (i >= state.loggedMessages.length || state.loggedMessages[i] !== msgKey) {
         newMessages.push(messages[i]);
-        this.loggedMessages[i] = msgKey;
+        state.loggedMessages[i] = msgKey;
       }
     }
-    this.loggedMessages.length = messages.length;
+    state.loggedMessages.length = messages.length;
 
-    const isFirstCall = this.callCount === 0;
-    this.callCount++;
+    const isFirstCall = state.callCount === 0;
+    state.callCount++;
 
     // Emit events
     this.logger.log({ type: 'llm_call_start', isFirstCall });
@@ -211,7 +225,10 @@ export class LLMConversationTracker {
   /**
    * Log an LLM response (text content and/or tool calls)
    */
-  logOutput(content: string, toolCalls?: Array<{ name: string; arguments: Record<string, unknown> }>): void {
+  logOutput(conversationId: string, content: string, toolCalls?: Array<{ name: string; arguments: Record<string, unknown> }>): void {
+    // Ensure conversation exists (in case logOutput is called without logInput)
+    this.getState(conversationId);
+
     this.logger.log({ type: 'llm_call_output' });
 
     if (toolCalls && toolCalls.length > 0) {
@@ -234,22 +251,35 @@ export class LLMConversationTracker {
    * Log a raw response string (for backends that return tool calls as formatted strings)
    * Parses <tool_call> tags and handles accordingly
    */
-  logRawOutput(response: string): void {
+  logRawOutput(conversationId: string, response: string): void {
     const toolCall = this.parseToolCall(response);
 
     if (toolCall) {
-      this.logOutput('', [toolCall]);
+      this.logOutput(conversationId, '', [toolCall]);
     } else {
-      this.logOutput(response);
+      this.logOutput(conversationId, response);
     }
   }
 
   /**
-   * Reset tracker state (e.g., for new conversation)
+   * Remove a conversation's tracking state (called when session ends)
+   */
+  removeConversation(conversationId: string): void {
+    this.conversations.delete(conversationId);
+  }
+
+  /**
+   * Reset tracker state for a specific conversation
+   */
+  resetConversation(conversationId: string): void {
+    this.conversations.delete(conversationId);
+  }
+
+  /**
+   * Reset all tracker state (e.g., for testing)
    */
   reset(): void {
-    this.loggedMessages = [];
-    this.callCount = 0;
+    this.conversations.clear();
   }
 
   /**
@@ -329,3 +359,4 @@ export function getDefaultTracker(): LLMConversationTracker {
   }
   return defaultTracker;
 }
+

@@ -59,8 +59,11 @@ export class TransformersLLM implements LLMPipeline {
       throw new Error('LLM pipeline not initialized');
     }
 
+    // Use conversation ID if provided, else default
+    const conversationId = options?.conversationId ?? 'default';
+
     // Log input messages
-    this.tracker.logInput(messages as TrackerMessage[]);
+    this.tracker.logInput(conversationId, messages as TrackerMessage[]);
 
     const prompt = this.formatChatPrompt(messages, options?.tools);
 
@@ -75,7 +78,7 @@ export class TransformersLLM implements LLMPipeline {
     response = response.replace(/<\|im_end\|>.*$/s, '').trim();
 
     // Log the response
-    this.tracker.logOutput(response);
+    this.tracker.logOutput(conversationId, response);
 
     // Stream character by character
     for (const char of response) {

@@ -5,7 +5,7 @@
 
 // Main orchestrator
 export { VoicePipeline } from './voice-pipeline';
-export type { VoicePipelineConfig, VoicePipelineCallbacks } from './voice-pipeline';
+export type { VoicePipelineConfig, VoicePipelineCallbacks, ConversationContext } from './voice-pipeline';
 
 // Types
 export * from './types';

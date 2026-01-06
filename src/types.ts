@@ -175,6 +175,8 @@ export interface LLMGenerateOptions {
   onToken?: (token: string) => void;
   /** Callback when tool calls are detected */
   onToolCall?: (toolCall: ToolCall) => void;
+  /** Conversation ID for tracking/logging (supports multiple simultaneous conversations) */
+  conversationId?: string;
 }
 
 /**

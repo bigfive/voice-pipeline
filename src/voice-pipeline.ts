@@ -4,6 +4,8 @@
  *
  * STT and TTS are optional - omit them if the client handles them locally.
  * Supports tool registration for function calling with any LLM backend.
+ *
+ * The pipeline is stateless - callers manage conversation history via ConversationContext.
  */
 
 import type {
@@ -62,13 +64,22 @@ export interface VoicePipelineCallbacks {
   onToolResult?: (toolCallId: string, result: unknown) => void;
 }
 
+/**
+ * Conversation context - callers manage history externally
+ */
+export interface ConversationContext {
+  /** Unique conversation ID for tracking/logging */
+  conversationId: string;
+  /** Conversation history (managed by caller) */
+  history: Message[];
+}
+
 export class VoicePipeline {
   private stt: STTPipeline | null;
   private llm: LLMPipeline;
   private tts: TTSPipeline | null;
   private systemPrompt: string;
   private textNormalizer = new TextNormalizer();
-  private history: Message[] = [];
   private tools: Map<string, Tool> = new Map();
   private toolDefinitions: ToolDefinition[] = [];
   private toolFillerPhrases: string[];
@@ -87,9 +98,6 @@ export class VoicePipeline {
         this.registerTool(tool);
       }
     }
-
-    // Build initial system prompt (may include tool instructions for non-native backends)
-    this.history = [{ role: 'system', content: this.buildSystemPrompt() }];
   }
 
   /**
@@ -120,10 +128,17 @@ export class VoicePipeline {
   }
 
   /**
-   * Build system prompt (no tool injection - backends handle their own)
+   * Get the system prompt (for initializing conversation history)
    */
-  private buildSystemPrompt(): string {
+  getSystemPrompt(): string {
     return this.systemPrompt;
+  }
+
+  /**
+   * Create initial history with system prompt
+   */
+  createInitialHistory(): Message[] {
+    return [{ role: 'system', content: this.systemPrompt }];
   }
 
   async initialize(onProgress?: ProgressCallback): Promise<void> {
@@ -160,122 +175,147 @@ export class VoicePipeline {
   }
 
   /**
-   * Process audio input (requires STT backend)
+   * Process text input through LLM (and optionally TTS)
+   * Returns new messages to append to history
    */
-  async processAudio(audio: Float32Array, callbacks: VoicePipelineCallbacks): Promise<void> {
+  async processText(
+    text: string,
+    context: ConversationContext,
+    callbacks: Omit<VoicePipelineCallbacks, 'onTranscript'>
+  ): Promise<Message[]> {
+    try {
+      const newMessages = await this.processTranscript(text, context, {
+        ...callbacks,
+        onTranscript: () => {},
+      });
+      callbacks.onComplete();
+      return newMessages;
+    } catch (error) {
+      callbacks.onError(error instanceof Error ? error : new Error(String(error)));
+      return [];
+    }
+  }
+
+  /**
+   * Process audio input through STT → LLM → TTS
+   * Returns new messages to append to history
+   */
+  async processAudio(
+    audio: Float32Array,
+    context: ConversationContext,
+    callbacks: VoicePipelineCallbacks
+  ): Promise<Message[]> {
     if (!this.stt) {
       callbacks.onError(new Error('No STT backend configured. Use processText() instead.'));
-      return;
+      return [];
     }
 
     try {
-      // 1. STT
       const transcript = await this.stt.transcribe(audio);
       if (!transcript.trim()) {
         callbacks.onError(new Error('Could not transcribe audio'));
-        return;
+        return [];
       }
       callbacks.onTranscript(transcript);
 
-      // 2. Process the transcript
-      await this.processTranscript(transcript, callbacks);
-
+      const newMessages = await this.processTranscript(transcript, context, callbacks);
       callbacks.onComplete();
+      return newMessages;
     } catch (error) {
       callbacks.onError(error instanceof Error ? error : new Error(String(error)));
+      return [];
     }
   }
 
   /**
-   * Process text input (for when client does local STT)
+   * Internal: Process transcript through LLM
    */
-  async processText(text: string, callbacks: Omit<VoicePipelineCallbacks, 'onTranscript'>): Promise<void> {
-    try {
-      await this.processTranscript(text, {
-        ...callbacks,
-        onTranscript: () => {}, // No-op since client already has transcript
-      });
-      callbacks.onComplete();
-    } catch (error) {
-      callbacks.onError(error instanceof Error ? error : new Error(String(error)));
-    }
+  private async processTranscript(
+    transcript: string,
+    context: ConversationContext,
+    callbacks: VoicePipelineCallbacks
+  ): Promise<Message[]> {
+    const newMessages: Message[] = [];
+
+    // Add user message to context history
+    const userMessage: Message = { role: 'user', content: transcript };
+    context.history.push(userMessage);
+    newMessages.push(userMessage);
+
+    // Generate response with context
+    const responseMessages = await this.generateResponse(context, callbacks);
+    newMessages.push(...responseMessages);
+
+    return newMessages;
   }
 
   /**
-   * Internal: Process a transcript through LLM and optionally TTS
+   * Internal: Generate LLM response (with tool loop)
    */
-  private async processTranscript(transcript: string, callbacks: VoicePipelineCallbacks): Promise<void> {
-    // Add to history
-    this.history.push({ role: 'user', content: transcript });
-
-    // LLM with optional streaming TTS
-    await this.generateResponse(callbacks);
-  }
-
-  private async generateResponse(callbacks: VoicePipelineCallbacks): Promise<void> {
+  private async generateResponse(
+    context: ConversationContext,
+    callbacks: VoicePipelineCallbacks
+  ): Promise<Message[]> {
+    const newMessages: Message[] = [];
     const useNativeTools = (this.llm.supportsTools?.() ?? false) && this.toolDefinitions.length > 0;
     const hasTools = this.toolDefinitions.length > 0;
 
-    // Tool execution loop - may iterate multiple times if LLM requests tools
+    // Tool execution loop
     for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration++) {
       const isToolCheckTurn = hasTools && iteration === 0;
-
-      // For prompt-based tools on first turn, don't stream (need to check for tool call JSON)
-      // For native tools, we can check tool_calls in result without streaming issues
       const shouldStream = !isToolCheckTurn || useNativeTools;
 
       const result = await this.generateLLMResponse(
+        context,
         callbacks,
         useNativeTools,
-        shouldStream && !useNativeTools // Only stream if not using native tools (native handles tool calls separately)
+        shouldStream && !useNativeTools
       );
 
-      // Check for tool calls
       const toolCalls = useNativeTools
         ? result.toolCalls
         : this.parsePromptBasedToolCalls(result.content);
 
       if (!toolCalls || toolCalls.length === 0) {
-        // No tool calls - stream the response if we haven't already
         if (!shouldStream || useNativeTools) {
-          // Stream the content now (we buffered it)
           await this.streamResponse(result.content, callbacks);
         }
 
-        // Add assistant response to history
-        this.history.push({ role: 'assistant', content: result.content });
-        return;
+        const assistantMsg: Message = { role: 'assistant', content: result.content };
+        context.history.push(assistantMsg);
+        newMessages.push(assistantMsg);
+        return newMessages;
       }
 
-      // Tool call detected - say filler phrase while we execute
+      // Tool call - say filler phrase
       if (this.toolFillerPhrases.length > 0) {
         const fillerPhrase = this.toolFillerPhrases[this.fillerPhraseIndex % this.toolFillerPhrases.length];
         this.fillerPhraseIndex++;
         await this.streamResponse(fillerPhrase + ' ', callbacks);
       }
 
-      // Add assistant message with tool calls to history (don't include raw JSON for prompt-based)
       const assistantContent = useNativeTools ? result.content : '';
       const assistantMsg: AssistantMessage = {
         role: 'assistant',
         content: assistantContent,
         toolCalls,
       };
-      this.history.push(assistantMsg);
+      context.history.push(assistantMsg);
+      newMessages.push(assistantMsg);
 
-      // Execute tool calls
+      // Execute tools
       for (const toolCall of toolCalls) {
         callbacks.onToolCall?.(toolCall);
 
         const tool = this.tools.get(toolCall.name);
         if (!tool) {
-          // Unknown tool - add error result
           const errorMsg: ToolMessage = {
             role: 'tool',
             toolCallId: toolCall.id,
             content: JSON.stringify({ error: `Unknown tool: ${toolCall.name}` }),
           };
-          this.history.push(errorMsg);
+          context.history.push(errorMsg);
+          newMessages.push(errorMsg);
           callbacks.onToolResult?.(toolCall.id, { error: `Unknown tool: ${toolCall.name}` });
           continue;
         }
@@ -287,7 +327,8 @@ export class VoicePipeline {
             toolCallId: toolCall.id,
             content: JSON.stringify(toolResult),
           };
-          this.history.push(resultMsg);
+          context.history.push(resultMsg);
+          newMessages.push(resultMsg);
           callbacks.onToolResult?.(toolCall.id, toolResult);
         } catch (error) {
           const errorResult = { error: error instanceof Error ? error.message : String(error) };
@@ -296,17 +337,15 @@ export class VoicePipeline {
             toolCallId: toolCall.id,
             content: JSON.stringify(errorResult),
           };
-          this.history.push(errorMsg);
+          context.history.push(errorMsg);
+          newMessages.push(errorMsg);
           callbacks.onToolResult?.(toolCall.id, errorResult);
         }
       }
-
-      // Continue loop to get LLM's response after tool results
-      // Next iteration will stream the final response
     }
 
-    // If we hit max iterations, add a warning
     console.warn('VoicePipeline: Max tool iterations reached');
+    return newMessages;
   }
 
   /**
@@ -329,41 +368,41 @@ export class VoicePipeline {
   }
 
   /**
-   * Generate LLM response, optionally with streaming
-   * Always passes tools to the backend - each backend handles its own prompt injection
+   * Generate LLM response
    */
   private async generateLLMResponse(
+    context: ConversationContext,
     callbacks: VoicePipelineCallbacks,
     useNativeTools: boolean,
     shouldStream: boolean
   ): Promise<{ content: string; toolCalls?: ToolCall[] }> {
     const tools = this.toolDefinitions.length > 0 ? this.toolDefinitions : undefined;
 
-    // If streaming with TTS, use sentence-by-sentence streaming
     if (shouldStream && this.tts) {
-      return this.generateWithStreamingTTS(callbacks, useNativeTools);
+      return this.generateWithStreamingTTS(context, callbacks, useNativeTools);
     }
 
-    // If streaming without TTS, just stream tokens
     if (shouldStream) {
-      const result = await this.llm.generate(this.history, {
+      const result = await this.llm.generate(context.history, {
         tools,
+        conversationId: context.conversationId,
         onToken: (token) => callbacks.onResponseChunk(token),
       });
       return { content: result.content, toolCalls: result.toolCalls };
     }
 
-    // No streaming - just get the result (used for tool call detection)
-    const result = await this.llm.generate(this.history, {
+    const result = await this.llm.generate(context.history, {
       tools,
+      conversationId: context.conversationId,
     });
     return { content: result.content, toolCalls: result.toolCalls };
   }
 
   /**
-   * Generate LLM response with streaming TTS (sentence by sentence)
+   * Generate with streaming TTS (sentence by sentence)
    */
   private async generateWithStreamingTTS(
+    context: ConversationContext,
     callbacks: VoicePipelineCallbacks,
     _useNativeTools: boolean
   ): Promise<{ content: string; toolCalls?: ToolCall[] }> {
@@ -399,8 +438,9 @@ export class VoicePipeline {
       ttsPromises.push(promise);
     };
 
-    const result = await this.llm.generate(this.history, {
+    const result = await this.llm.generate(context.history, {
       tools,
+      conversationId: context.conversationId,
       onToken: (token) => {
         callbacks.onResponseChunk(token);
         sentenceBuffer += token;
@@ -416,12 +456,10 @@ export class VoicePipeline {
       },
     });
 
-    // Handle remaining text
     if (sentenceBuffer.trim()) {
       queueTTS(sentenceBuffer.trim(), nextSentenceIndex++);
     }
 
-    // Wait for all TTS to complete
     if (ttsPromises.length > 0) {
       await Promise.all(ttsPromises);
     }
@@ -476,13 +514,5 @@ export class VoicePipeline {
     }
 
     return undefined;
-  }
-
-  clearHistory(): void {
-    this.history = [{ role: 'system', content: this.buildSystemPrompt() }];
-  }
-
-  getHistory(): Message[] {
-    return [...this.history];
   }
 }

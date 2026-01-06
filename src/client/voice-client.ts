@@ -233,11 +233,19 @@ export class VoiceClient {
   private ttsQueue: string[] = [];
   private isSpeaking = false;
 
+  // Conversation state (for local mode)
+  private conversationId = this.generateConversationId();
+  private history: Array<{ role: 'system' | 'user' | 'assistant' | 'tool'; content: string }> = [];
+
   // Recording state for local pipeline
   private audioContext: AudioContext | null = null;
   private mediaRecorder: MediaRecorder | null = null;
   private audioChunks: Blob[] = [];
   private mediaRecording = false;
+
+  private generateConversationId(): string {
+    return `conv-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+  }
 
   constructor(config: VoiceClientConfig) {
     // Check browser support first
@@ -605,8 +613,15 @@ export class VoiceClient {
   private async runLocalPipeline(text: string): Promise<void> {
     if (!this.localPipeline) return;
 
-    // Handle WebSpeechSTT case: use processText instead of processAudio
-    const useProcessText = isWebSpeechSTT(this.localSTT) || !this.localPipeline.hasSTT();
+    // Initialize history if empty
+    if (this.history.length === 0) {
+      this.history = this.localPipeline.createInitialHistory();
+    }
+
+    const context = {
+      conversationId: this.conversationId,
+      history: this.history,
+    };
 
     const callbacks = {
       onTranscript: (t: string) => this.emit('transcript', t),
@@ -641,26 +656,24 @@ export class VoiceClient {
       },
     };
 
-    if (useProcessText) {
-      await this.localPipeline.processText(text, callbacks);
-    } else {
-      // This path is for when we have STT in the pipeline (non-WebSpeech)
-      // But since we already transcribed, just use processText
-      await this.localPipeline.processText(text, callbacks);
-    }
+    // processText mutates context.history with new messages
+    await this.localPipeline.processText(text, context, callbacks);
   }
 
   private async runLocalLLM(text: string): Promise<void> {
     if (!this.localLLM) return;
 
-    // Simple local LLM processing without full pipeline
-    const history = [
-      { role: 'system' as const, content: this.config.systemPrompt },
-      { role: 'user' as const, content: text },
-    ];
+    // Initialize history if empty
+    if (this.history.length === 0) {
+      this.history = [{ role: 'system' as const, content: this.config.systemPrompt }];
+    }
+
+    // Add user message to history
+    this.history.push({ role: 'user' as const, content: text });
 
     try {
-      const result = await this.localLLM.generate(history, {
+      const result = await this.localLLM.generate(this.history, {
+        conversationId: this.conversationId,
         onToken: (token: string) => {
           this.currentResponse += token;
           this.emit('responseChunk', token);
@@ -676,6 +689,9 @@ export class VoiceClient {
           }
         },
       });
+
+      // Add assistant response to history
+      this.history.push({ role: 'assistant' as const, content: result.content });
 
       this.emit('responseComplete', result.content);
 
@@ -696,9 +712,15 @@ export class VoiceClient {
    * Clear conversation history
    */
   clearHistory(): void {
+    // Reset local history
+    this.conversationId = this.generateConversationId();
     if (this.localPipeline) {
-      this.localPipeline.clearHistory();
+      this.history = this.localPipeline.createInitialHistory();
+    } else {
+      this.history = [];
     }
+
+    // Tell server to clear too
     if (this.needsServer) {
       this.send({ type: 'clear_history' });
     }
