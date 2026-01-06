@@ -79,6 +79,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/your-username/voice-pipeline.git"
+    "url": "https://github.com/bigfive/voice-pipeline.git"
+  },
+  "author": "Jonathan Williams <bigfive@users.noreply.github.com>",
+  "homepage": "https://github.com/bigfive/voice-pipeline#readme",
+  "bugs": {
+    "url": "https://github.com/bigfive/voice-pipeline/issues"
   }
 }
